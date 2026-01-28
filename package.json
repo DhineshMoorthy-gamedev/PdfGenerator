@@ -1,0 +1,19 @@
+{
+  "name": "com.unityproductivitytools.pdfgenerator",
+  "version": "1.0.0",
+  "displayName": "PDF Generator",
+  "description": "A lightweight, dependency-free PDF generator utility for Unity, allowing you to create PDF reports at runtime or within the editor.",
+  "unity": "2019.4",
+  "author": {
+    "name": "Unity Productivity Tools",
+    "url": "https://github.com/UnityProductivityTools/PdfGenerator"
+  },
+  "keywords": [
+    "pdf",
+    "generator",
+    "report",
+    "export",
+    "utility"
+  ],
+  "dependencies": {}
+}
