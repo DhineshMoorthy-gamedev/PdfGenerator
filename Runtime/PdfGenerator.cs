@@ -94,6 +94,38 @@ namespace UnityProductivityTools.Runtime
             currentContent.AppendLine("BT");
         }
 
+        public void DrawRect(float x, float y, float width, float height, bool fill = false)
+        {
+            currentContent.AppendLine("ET");
+            // re (rect), S (stroke), f (fill)
+            currentContent.AppendLine($"{x} {y} {width} {height} re");
+            if (fill) currentContent.AppendLine("f");
+            else currentContent.AppendLine("S");
+            currentContent.AppendLine("BT");
+        }
+
+        public void SetLineWidth(float width)
+        {
+            currentContent.AppendLine("ET");
+            currentContent.AppendLine($"{width} w");
+            currentContent.AppendLine("BT");
+        }
+
+        public void SetDashPattern(float[] dashArray, float phase)
+        {
+            currentContent.AppendLine("ET");
+            if (dashArray == null || dashArray.Length == 0)
+            {
+                currentContent.AppendLine("[] 0 d");
+            }
+            else
+            {
+                string arrayStr = string.Join(" ", dashArray);
+                currentContent.AppendLine($"[{arrayStr}] {phase} d");
+            }
+            currentContent.AppendLine("BT");
+        }
+
         public void DrawHorizontalRule()
         {
             DrawLine(leftMargin, pageWidth - rightMargin);

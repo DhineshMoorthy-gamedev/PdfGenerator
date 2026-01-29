@@ -58,6 +58,15 @@ pdf.DrawCenteredText("My Custom PDF", 24, true);
 pdf.Save("CustomReport.pdf");
 ```
 
+
+## Advanced Tables
+
+The 1.1 update introduces a professional-grade table engine:
+- **Rich Styling**: Custom border colors, dashed lines, and per-cell background colors.
+- **Complex Layouts**: Support for column spanning (`colspan`) and automatic text wrapping.
+- **Precision Control**: Fine-tune cell content with per-cell alignment, vertical alignment, and X/Y offsets.
+- **Inspector UI**: A powerful new "Advanced Cells" grid for managing complex table data directly in Unity.
+
 ## Documentation
 
 For detailed API information, please refer to the source code or the [Wiki](https://github.com/UnityProductivityTools/PdfGenerator/wiki).

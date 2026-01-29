@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace UnityProductivityTools.Runtime
@@ -6,7 +7,8 @@ namespace UnityProductivityTools.Runtime
     {
         Text,
         Divider,
-        VerticalSpace
+        VerticalSpace,
+        Table
     }
 
     public enum PdfAlignment
@@ -14,6 +16,60 @@ namespace UnityProductivityTools.Runtime
         Left,
         Center,
         Right
+    }
+
+    public enum PdfVerticalAlignment
+    {
+        Top,
+        Middle,
+        Bottom
+    }
+
+    public enum PdfBorderStyle
+    {
+        Solid,
+        Dashed
+    }
+
+    [System.Serializable]
+    public class PdfTableCell
+    {
+        public string text;
+        public PdfAlignment alignment = PdfAlignment.Left;
+        public PdfVerticalAlignment verticalAlignment = PdfVerticalAlignment.Middle;
+        public float offsetX = 0f;
+        public float offsetY = 0f;
+        
+        public Color backgroundColor = Color.clear;
+        public int colspan = 1;
+        public string imagePath;
+        public bool wrapText = true;
+        
+        public PdfTableCell() 
+        { 
+            colspan = 1;
+            wrapText = true;
+            alignment = PdfAlignment.Left;
+            verticalAlignment = PdfVerticalAlignment.Middle;
+            backgroundColor = Color.clear;
+        }
+        
+        public PdfTableCell(string text, PdfAlignment alignment = PdfAlignment.Left) : this()
+        {
+            this.text = text;
+            this.alignment = alignment;
+        }
+    }
+
+    [System.Serializable]
+    public class PdfTableRow
+    {
+        public List<PdfTableCell> cells = new List<PdfTableCell>();
+        public PdfTableRow() { }
+        public PdfTableRow(int columnCount)
+        {
+            for (int i = 0; i < columnCount; i++) cells.Add(new PdfTableCell());
+        }
     }
 
     [System.Serializable]
@@ -43,6 +99,17 @@ namespace UnityProductivityTools.Runtime
         // Element-Specific Options
         public float dividerThickness = 1f; // For Divider type
         public float dividerWidth = 495f; // For Divider type
+
+        // Table Options
+        public List<PdfTableRow> tableData = new List<PdfTableRow>();
+        public bool showTableBorders = true;
+        public float borderThickness = 1f;
+        public Color borderColor = Color.black;
+        public PdfBorderStyle borderStyle = PdfBorderStyle.Solid;
+        public float cellPadding = 5f;
+        public bool hasTableHeader = true;
+        public Color tableHeaderColor = new Color(0.9f, 0.9f, 0.9f);
+        public List<float> columnWidths = new List<float>(); // Optional overrides
 
         public PdfElement() { }
 

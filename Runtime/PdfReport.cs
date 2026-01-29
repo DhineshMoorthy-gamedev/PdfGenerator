@@ -138,7 +138,193 @@ namespace UnityProductivityTools.Runtime
                         pdf.AddVerticalSpace(20f); // Default space if parsing fails or text empty
                     }
                     break;
+
+                case PdfElementType.Table:
+                    DrawTable(pdf, el);
+                    break;
             }
+        }
+
+        private void DrawTable(PdfGenerator pdf, PdfElement el)
+        {
+            if (el.tableData == null || el.tableData.Count == 0) return;
+
+            int rowCount = el.tableData.Count;
+            int colCount = el.tableData[0].cells.Count;
+            if (colCount == 0) return;
+
+            float effectiveLeftMargin = (el.leftMargin == 50f) ? pdf.leftMargin : el.leftMargin;
+            float effectiveRightMargin = (el.rightMargin == 50f) ? pdf.rightMargin : el.rightMargin;
+
+            float tableWidth = el.dividerWidth > 0 ? el.dividerWidth : (595f - effectiveLeftMargin - effectiveRightMargin);
+            float[] colWidths = new float[colCount];
+
+            // Distribute width
+            for (int i = 0; i < colCount; i++)
+            {
+                if (el.columnWidths != null && i < el.columnWidths.Count && el.columnWidths[i] > 0)
+                    colWidths[i] = el.columnWidths[i];
+                else
+                    colWidths[i] = tableWidth / colCount;
+            }
+
+            float startX = effectiveLeftMargin;
+
+            for (int r = 0; r < rowCount; r++)
+            {
+                bool isHeader = (r == 0 && el.hasTableHeader);
+                
+                // --- PHASE 1: Calculate Row Height (supports wrapping) ---
+                float actualRowHeight = el.fontSize + (el.cellPadding * 2f);
+                List<List<string>> wrappedRows = new List<List<string>>();
+
+                for (int c = 0; c < colCount; c++)
+                {
+                    PdfTableCell cell = el.tableData[r].cells[c];
+                    string rawText = cell.text ?? "";
+                    
+                    if (cell.wrapText)
+                    {
+                        float maxWidth = colWidths[c] - (el.cellPadding * 2);
+                        // Approximate char width 0.5f of font size
+                        int charsPerLine = Mathf.Max(1, Mathf.FloorToInt(maxWidth / (el.fontSize * 0.53f)));
+                        var lines = SplitTextIntoLines(rawText, charsPerLine);
+                        wrappedRows.Add(lines);
+                        float cellHeight = (lines.Count * el.fontSize) + (el.cellPadding * 2f);
+                        if (cellHeight > actualRowHeight) actualRowHeight = cellHeight;
+                    }
+                    else
+                    {
+                        wrappedRows.Add(new List<string> { rawText });
+                    }
+                }
+
+                pdf.CheckPageOverflow(actualRowHeight);
+
+                float currentX = startX;
+
+                // --- PHASE 2: Draw Backgrounds, Borders, and Content ---
+                for (int c = 0; c < colCount; c++)
+                {
+                    PdfTableCell cell = el.tableData[r].cells[c];
+                    
+                    // Safety: Force colspan to 1 if it's 0 (prevents skipping cells in old data)
+                    int safeColspan = Mathf.Max(1, cell.colspan);
+                    
+                    float effectiveColWidth = 0;
+                    for(int i = 0; i < safeColspan && (c + i) < colCount; i++) effectiveColWidth += colWidths[c + i];
+
+                    // 1. Draw Cell Background (Header color or Per-cell color)
+                    Color cellBg = cell.backgroundColor;
+                    // If no per-cell bg is set, use the global header color for the header row
+                    if (isHeader && cellBg.a < 0.01f) cellBg = el.tableHeaderColor;
+
+                    if (cellBg.a > 0.05f) // Slightly higher threshold for safety
+                    {
+                        pdf.SetColor(cellBg);
+                        pdf.DrawRect(currentX, pdf.cursorY - actualRowHeight, effectiveColWidth, actualRowHeight, true);
+                    }
+
+                    // 2. Draw Borders
+                    if (el.showTableBorders)
+                    {
+                        pdf.SetLineWidth(el.borderThickness);
+                        pdf.SetColor(el.borderColor);
+                        if (el.borderStyle == PdfBorderStyle.Dashed) pdf.SetDashPattern(new float[] { 3, 3 }, 0);
+                        else pdf.SetDashPattern(null, 0);
+
+                        pdf.DrawRect(currentX, pdf.cursorY - actualRowHeight, effectiveColWidth, actualRowHeight, false);
+                    }
+
+                    // 3. Draw Images (Placeholder)
+                    if (!string.IsNullOrEmpty(cell.imagePath))
+                    {
+                        pdf.SetColor(Color.gray);
+                        pdf.DrawText("[Img]", currentX + el.cellPadding, el.fontSize * 0.7f, false);
+                    }
+
+                    // 4. Draw Wrapped/Positioned Text
+                    pdf.SetColor(el.color); // Restore text color
+                    var linesToDraw = wrappedRows[c];
+                    float totalLinesHeight = linesToDraw.Count * el.fontSize;
+                    
+                    for (int l = 0; l < linesToDraw.Count; l++)
+                    {
+                        string line = linesToDraw[l];
+                        float textWidth = line.Length * el.fontSize * 0.5f;
+
+                        // Horizontal Align
+                        float textX = currentX + el.cellPadding;
+                        if (cell.alignment == PdfAlignment.Center) textX = currentX + (effectiveColWidth / 2f) - (textWidth / 2f);
+                        else if (cell.alignment == PdfAlignment.Right) textX = currentX + effectiveColWidth - textWidth - el.cellPadding;
+                        textX += cell.offsetX;
+
+                        // Vertical Align
+                        float startY = pdf.cursorY - el.cellPadding - (el.fontSize * 0.8f); // Top
+                        if (cell.verticalAlignment == PdfVerticalAlignment.Middle)
+                            startY = pdf.cursorY - (actualRowHeight / 2f) - (totalLinesHeight / 2f) + (el.fontSize * 0.2f);
+                        else if (cell.verticalAlignment == PdfVerticalAlignment.Bottom)
+                            startY = pdf.cursorY - actualRowHeight + el.cellPadding + ((linesToDraw.Count - 1 - l) * el.fontSize);
+                        
+                        // Line spacing
+                        float lineY = startY - (l * el.fontSize) + cell.offsetY;
+
+                        float savedY = pdf.cursorY;
+                        pdf.cursorY = lineY;
+                        pdf.DrawText(line, textX, el.fontSize, isHeader || el.isBold);
+                        pdf.cursorY = savedY;
+                    }
+
+                    currentX += effectiveColWidth;
+                    if (safeColspan > 1) c += (safeColspan - 1); // Skip spanned columns
+                }
+
+                // Reset Line Width/Dash Pattern for safety
+                if (el.showTableBorders)
+                {
+                    pdf.SetLineWidth(1f);
+                    pdf.SetDashPattern(null, 0);
+                }
+
+                pdf.AddVerticalSpace(actualRowHeight);
+            }
+        }
+
+        private List<string> SplitTextIntoLines(string text, int maxChars)
+        {
+            List<string> lines = new List<string>();
+            if (string.IsNullOrEmpty(text))
+            {
+                lines.Add("");
+                return lines;
+            }
+
+            string[] words = text.Split(' ');
+            string currentLine = "";
+
+            foreach (var word in words)
+            {
+                if (string.IsNullOrEmpty(word)) continue;
+
+                if ((currentLine + word).Length <= maxChars)
+                {
+                    currentLine += (currentLine == "" ? "" : " ") + word;
+                }
+                else
+                {
+                    if (currentLine != "") lines.Add(currentLine);
+                    currentLine = word;
+                    // Handle words longer than maxChars
+                    while (currentLine.Length > maxChars)
+                    {
+                        lines.Add(currentLine.Substring(0, maxChars));
+                        currentLine = currentLine.Substring(maxChars);
+                    }
+                }
+            }
+            if (currentLine != "") lines.Add(currentLine);
+            if (lines.Count == 0) lines.Add("");
+            return lines;
         }
 
         private void DrawWrappedText(PdfGenerator pdf, string text, int fontSize, bool isBold, PdfAlignment alignment, float leftMargin, float rightMargin, float lineHeight, float maxWidth)
