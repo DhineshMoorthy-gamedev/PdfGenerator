@@ -8,8 +8,9 @@ A lightweight, dependency-free PDF generator utility for Unity. This package all
 - **Runtime Support**: Generate PDFs on any platform supported by Unity.
 - **Multi-Page Support**: Organize reports into multiple pages with explicit control.
 - **Custom Margins**: Set global margins or override them per page for ultimate layout control.
+- **Vector Graphics & Shapes**: Draw rectangles, circles, ellipses, polygons, and curved paths with Bezier support.
 - **Advanced Tables**: Professional table engine with wrapping, colspan, and rich styling.
-- **Modular Elements**: Build reports using modular elements like Headers, Text blocks, Dividers, and more.
+- **Modular Elements**: Build reports using modular elements like Headers, Text blocks, Dividers, Shapes, and more.
 - **Editor Tooling**: Powerful custom inspector with drag-and-drop reordering and interactive table grid.
 
 ## Installation
@@ -18,7 +19,7 @@ A lightweight, dependency-free PDF generator utility for Unity. This package all
 
 1. Open the **Package Manager** in Unity (Window > Package Manager).
 2. Click the **+** button and select **Add package from git URL...**.
-3. Enter the repository URL: `https://github.com/UnityProductivityTools/PdfGenerator.git`
+3. Enter the repository URL: `https://github.com/DhineshMoorthy-gamedev/PdfGenerator.git`
 
 ### Manual Installation
 
@@ -61,6 +62,38 @@ pdf.DrawCenteredText("My Custom PDF", 24, true);
 pdf.Save("CustomReport.pdf");
 ```
 
+## Vector Graphics & Shapes
+
+The package now includes comprehensive vector drawing capabilities:
+
+- **Basic Shapes**: Rectangles, Rounded Rectangles, Circles, Ellipses, Lines
+- **Complex Shapes**: Polygons (custom vertices), Paths (with Bezier curves)
+- **Styling**: Fill colors, stroke colors, opacity, line thickness, dash patterns
+- **Line Styling**: Configurable line joins (Miter, Round, Bevel) and caps (Butt, Round, Square)
+
+```csharp
+// Create a filled circle
+page.elements.Add(new PdfElement { 
+    type = PdfElementType.Shape, 
+    shapeType = PdfShapeType.Circle, 
+    width = 80f,
+    height = 80f,
+    useFill = true,
+    fillColor = Color.red,
+    useStroke = true,
+    borderColor = Color.black
+});
+
+// Create a curved path with Bezier
+var pathSegments = new List<PdfPathSegment> {
+    new PdfPathSegment { command = PdfPathCommand.MoveTo, p1 = new Vector2(0, 0) },
+    new PdfPathSegment { 
+        command = PdfPathCommand.CurveTo, 
+        p1 = new Vector2(25, 50), p2 = new Vector2(75, 50), p3 = new Vector2(100, 0)
+    },
+    new PdfPathSegment { command = PdfPathCommand.Close }
+};
+```
 
 ## Advanced Tables
 
@@ -72,9 +105,16 @@ The 1.2 update introduces a professional-grade multi-page engine:
 
 ## Documentation
 
-For detailed API information, please refer to the source code or the [Wiki](https://github.com/UnityProductivityTools/PdfGenerator/wiki).
+- **[User Manual](Documentation/UserManual.md)** - Comprehensive guide with examples
+- **[Sequence Diagram (Architecture)](Documentation/SequenceDiagram.md)** - System architecture overview
 
-- [Sequence Diagram (Architecture)](Documentation/SequenceDiagram.md)
+For detailed API information, please refer to the source code or the [Wiki](https://github.com/DhineshMoorthy-gamedev/PdfGenerator/wiki).
+
+## Examples
+
+Check out the included demo scripts:
+- `ShapesDemo.cs` - Demonstrates all available shape types and styling options
+- `TableDemo.cs` - Shows advanced table features
 
 ## License
 

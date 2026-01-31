@@ -175,6 +175,7 @@ namespace UnityProductivityTools.Editor.PdfGenerator
             if (GUILayout.Button("+ Header", EditorStyles.miniButtonLeft)) AddPreset(elementsProp, PdfElementType.Text, "Header", 18, true, PdfAlignment.Center);
             if (GUILayout.Button("+ Text", EditorStyles.miniButtonMid)) AddPreset(elementsProp, PdfElementType.Text, "Body Text", 11, false, PdfAlignment.Left);
             if (GUILayout.Button("+ Table", EditorStyles.miniButtonMid)) AddTablePreset(elementsProp);
+            if (GUILayout.Button("+ Shape", EditorStyles.miniButtonMid)) AddShapePreset(elementsProp);
             if (GUILayout.Button("+ Divider", EditorStyles.miniButtonRight)) AddPreset(elementsProp, PdfElementType.Divider, "", 11, false, PdfAlignment.Left);
             EditorGUILayout.EndHorizontal();
         }
@@ -187,8 +188,8 @@ namespace UnityProductivityTools.Editor.PdfGenerator
             var isBold = element.FindPropertyRelative("isBold");
             var color = element.FindPropertyRelative("color");
             var alignment = element.FindPropertyRelative("alignment");
-            var spacing = element.FindPropertyRelative("spacingAfter");
-            var spacingBefore = element.FindPropertyRelative("spacingBefore");
+            var bottomMargin = element.FindPropertyRelative("bottomMargin");
+            var topMargin = element.FindPropertyRelative("topMargin");
             var leftMargin = element.FindPropertyRelative("leftMargin");
             var rightMargin = element.FindPropertyRelative("rightMargin");
             var lineHeight = element.FindPropertyRelative("lineHeight");
@@ -198,6 +199,8 @@ namespace UnityProductivityTools.Editor.PdfGenerator
             var customY = element.FindPropertyRelative("customY");
             var dividerThickness = element.FindPropertyRelative("dividerThickness");
             var dividerWidth = element.FindPropertyRelative("dividerWidth");
+            var width = element.FindPropertyRelative("width");
+            var height = element.FindPropertyRelative("height");
 
             float sh = EditorGUIUtility.singleLineHeight;
             float p = 2f;
@@ -228,10 +231,10 @@ namespace UnityProductivityTools.Editor.PdfGenerator
                 EditorGUI.PropertyField(new Rect(rect.x + 310, rect.y + y, 35, sh), lineHeight, GUIContent.none);
 
                 y += sh + p;
-                EditorGUI.LabelField(new Rect(rect.x, rect.y + y, 85, sh), "Pre-Space:");
-                EditorGUI.PropertyField(new Rect(rect.x + 90, rect.y + y, 40, sh), spacingBefore, GUIContent.none);
-                EditorGUI.LabelField(new Rect(rect.x + 140, rect.y + y, 80, sh), "Post-Space:");
-                EditorGUI.PropertyField(new Rect(rect.x + 225, rect.y + y, 40, sh), spacing, GUIContent.none);
+                EditorGUI.LabelField(new Rect(rect.x, rect.y + y, 85, sh), "Top-Margin:");
+                EditorGUI.PropertyField(new Rect(rect.x + 90, rect.y + y, 40, sh), topMargin, GUIContent.none);
+                EditorGUI.LabelField(new Rect(rect.x + 140, rect.y + y, 80, sh), "Bot-Margin:");
+                EditorGUI.PropertyField(new Rect(rect.x + 225, rect.y + y, 40, sh), bottomMargin, GUIContent.none);
 
                 y += sh + p;
                 EditorGUI.LabelField(new Rect(rect.x, rect.y + y, 65, sh), "MaxW:");
@@ -254,14 +257,117 @@ namespace UnityProductivityTools.Editor.PdfGenerator
                 EditorGUI.PropertyField(new Rect(rect.x + 160, rect.y + y, 60, sh), dividerWidth, GUIContent.none);
 
                 y += sh + p;
-                EditorGUI.LabelField(new Rect(rect.x, rect.y + y, 85, sh), "Pre-Space:");
-                EditorGUI.PropertyField(new Rect(rect.x + 90, rect.y + y, 40, sh), spacingBefore, GUIContent.none);
-                EditorGUI.LabelField(new Rect(rect.x + 140, rect.y + y, 80, sh), "Post-Space:");
-                EditorGUI.PropertyField(new Rect(rect.x + 225, rect.y + y, 40, sh), spacing, GUIContent.none);
+                EditorGUI.LabelField(new Rect(rect.x, rect.y + y, 85, sh), "Top-Margin:");
+                EditorGUI.PropertyField(new Rect(rect.x + 90, rect.y + y, 40, sh), topMargin, GUIContent.none);
+                EditorGUI.LabelField(new Rect(rect.x + 140, rect.y + y, 80, sh), "Bot-Margin:");
+                EditorGUI.PropertyField(new Rect(rect.x + 225, rect.y + y, 40, sh), bottomMargin, GUIContent.none);
             }
             else if (elementType == PdfElementType.VerticalSpace)
             {
-                EditorGUI.PropertyField(new Rect(rect.x + 105, rect.y + p, rect.width - 105, sh), text, new GUIContent("Amount"));
+                EditorGUI.PropertyField(new Rect(rect.x + 105, rect.y + p, rect.width - 105, sh), text, GUIContent.none);
+            }
+            else if (elementType == PdfElementType.Shape)
+            {
+                var shapeType = element.FindPropertyRelative("shapeType");
+                var cornerRadius = element.FindPropertyRelative("cornerRadius");
+                var useFill = element.FindPropertyRelative("useFill");
+                var useStroke = element.FindPropertyRelative("useStroke");
+                var fillColor = element.FindPropertyRelative("fillColor");
+                var borderColor = element.FindPropertyRelative("borderColor");
+                var borderThickness = element.FindPropertyRelative("borderThickness");
+                var opacity = element.FindPropertyRelative("opacity");
+                var lineJoin = element.FindPropertyRelative("lineJoin");
+                var lineCap = element.FindPropertyRelative("lineCap");
+
+                float y = sh + p * 2;
+                EditorGUI.PropertyField(new Rect(rect.x, rect.y + y, 120, sh), shapeType, GUIContent.none);
+                EditorGUI.LabelField(new Rect(rect.x + 125, rect.y + y, 35, sh), "Opac:");
+                EditorGUI.PropertyField(new Rect(rect.x + 160, rect.y + y, 35, sh), opacity, GUIContent.none);
+                
+                PdfShapeType st = (PdfShapeType)shapeType.enumValueIndex;
+                
+                if (st != PdfShapeType.Line)
+                {
+                    useFill.boolValue = EditorGUI.ToggleLeft(new Rect(rect.x + 200, rect.y + y, 40, sh), "Fill", useFill.boolValue);
+                    EditorGUI.PropertyField(new Rect(rect.x + 245, rect.y + y, 40, sh), fillColor, GUIContent.none);
+                }
+                
+                useStroke.boolValue = EditorGUI.ToggleLeft(new Rect(rect.x + 290, rect.y + y, 55, sh), "Stroke", useStroke.boolValue);
+                EditorGUI.PropertyField(new Rect(rect.x + 350, rect.y + y, 40, sh), borderColor, GUIContent.none);
+
+                y += sh + p;
+                if (st == PdfShapeType.RoundedRectangle)
+                {
+                    EditorGUI.LabelField(new Rect(rect.x, rect.y + y, 50, sh), "Radius:");
+                    EditorGUI.PropertyField(new Rect(rect.x + 55, rect.y + y, 40, sh), cornerRadius, GUIContent.none);
+                    
+                    EditorGUI.LabelField(new Rect(rect.x + 100, rect.y + y, 40, sh), "Thick:");
+                    EditorGUI.PropertyField(new Rect(rect.x + 145, rect.y + y, 35, sh), borderThickness, GUIContent.none);
+                    EditorGUI.PropertyField(new Rect(rect.x + 185, rect.y + y, 60, sh), lineJoin, GUIContent.none);
+                    EditorGUI.PropertyField(new Rect(rect.x + 250, rect.y + y, 60, sh), lineCap, GUIContent.none);
+                }
+                else
+                {
+                    EditorGUI.LabelField(new Rect(rect.x, rect.y + y, 40, sh), "Thick:");
+                    EditorGUI.PropertyField(new Rect(rect.x + 45, rect.y + y, 35, sh), borderThickness, GUIContent.none);
+                    EditorGUI.PropertyField(new Rect(rect.x + 85, rect.y + y, 60, sh), lineJoin, GUIContent.none);
+                    EditorGUI.PropertyField(new Rect(rect.x + 150, rect.y + y, 60, sh), lineCap, GUIContent.none);
+                }
+
+                // Points / Segments
+                if (st == PdfShapeType.Polygon)
+                {
+                    y += sh + p;
+                    var points = element.FindPropertyRelative("points");
+                    float pointsH = EditorGUI.GetPropertyHeight(points, true);
+                    EditorGUI.PropertyField(new Rect(rect.x, rect.y + y, rect.width, pointsH), points, true); 
+                    y += pointsH - sh;
+                }
+                else if (st == PdfShapeType.Path)
+                {
+                    y += sh + p;
+                    var segments = element.FindPropertyRelative("pathSegments");
+                    float segmentsH = EditorGUI.GetPropertyHeight(segments, true);
+                    EditorGUI.PropertyField(new Rect(rect.x, rect.y + y, rect.width, segmentsH), segments, true); 
+                    y += segmentsH - sh;
+                }
+
+                y += sh + p;
+                EditorGUI.LabelField(new Rect(rect.x, rect.y + y, 75, sh), "L-Margin:");
+                EditorGUI.PropertyField(new Rect(rect.x + 80, rect.y + y, 40, sh), leftMargin, GUIContent.none);
+                EditorGUI.LabelField(new Rect(rect.x + 130, rect.y + y, 80, sh), "R-Margin:");
+                EditorGUI.PropertyField(new Rect(rect.x + 215, rect.y + y, 40, sh), rightMargin, GUIContent.none);
+                
+                y += sh + p;
+                if (st == PdfShapeType.Line)
+                {
+                    EditorGUI.LabelField(new Rect(rect.x, rect.y + y, 55, sh), "Length:");
+                    EditorGUI.PropertyField(new Rect(rect.x + 55, rect.y + y, 60, sh), width, GUIContent.none);
+                }
+                else if (st == PdfShapeType.Circle)
+                {
+                    EditorGUI.LabelField(new Rect(rect.x, rect.y + y, 60, sh), "Diameter:");
+                    EditorGUI.PropertyField(new Rect(rect.x + 65, rect.y + y, 60, sh), width, GUIContent.none);
+                    height.floatValue = width.floatValue;
+                }
+                else if (st == PdfShapeType.Polygon || st == PdfShapeType.Path)
+                {
+                     EditorGUI.LabelField(new Rect(rect.x, rect.y + y, 95, sh), "Content Height:");
+                     EditorGUI.PropertyField(new Rect(rect.x + 100, rect.y + y, 60, sh), height, GUIContent.none);
+                }
+                else 
+                {
+                    EditorGUI.LabelField(new Rect(rect.x, rect.y + y, 55, sh), "Width:");
+                    EditorGUI.PropertyField(new Rect(rect.x + 55, rect.y + y, 60, sh), width, GUIContent.none);
+                    EditorGUI.LabelField(new Rect(rect.x + 125, rect.y + y, 55, sh), "Height:");
+                    EditorGUI.PropertyField(new Rect(rect.x + 180, rect.y + y, 60, sh), height, GUIContent.none);
+                }
+
+                y += sh + p;
+                EditorGUI.LabelField(new Rect(rect.x, rect.y + y, 85, sh), "Top-Margin:");
+                EditorGUI.PropertyField(new Rect(rect.x + 90, rect.y + y, 40, sh), topMargin, GUIContent.none);
+                EditorGUI.LabelField(new Rect(rect.x + 140, rect.y + y, 80, sh), "Bot-Margin:");
+                EditorGUI.PropertyField(new Rect(rect.x + 225, rect.y + y, 40, sh), bottomMargin, GUIContent.none);
             }
             else if (elementType == PdfElementType.Table)
             {
@@ -327,10 +433,10 @@ namespace UnityProductivityTools.Editor.PdfGenerator
                 y += sh + p;
 
                 // Row 3.7: Spacing
-                EditorGUI.LabelField(new Rect(rect.x, rect.y + y, 70, sh), "Pre-Space:");
-                EditorGUI.PropertyField(new Rect(rect.x + 75, rect.y + y, 30, sh), spacingBefore, GUIContent.none);
-                EditorGUI.LabelField(new Rect(rect.x + 115, rect.y + y, 75, sh), "Post-Space:");
-                EditorGUI.PropertyField(new Rect(rect.x + 195, rect.y + y, 30, sh), spacing, GUIContent.none);
+                EditorGUI.LabelField(new Rect(rect.x, rect.y + y, 70, sh), "Top-Mg:");
+                EditorGUI.PropertyField(new Rect(rect.x + 75, rect.y + y, 30, sh), topMargin, GUIContent.none);
+                EditorGUI.LabelField(new Rect(rect.x + 115, rect.y + y, 75, sh), "Bot-Mg:");
+                EditorGUI.PropertyField(new Rect(rect.x + 195, rect.y + y, 30, sh), bottomMargin, GUIContent.none);
                 
                 y += sh + p;
                 
@@ -435,6 +541,21 @@ namespace UnityProductivityTools.Editor.PdfGenerator
                     float baseH = sh * 6 + p * 12; // Extra rows for Column Widths and Spacing
                     if (borders) baseH += sh + p;
                     return baseH + (rows * (sh + 2)) + p;
+                case PdfElementType.Shape:
+                    var shapeType = (PdfShapeType)element.FindPropertyRelative("shapeType").enumValueIndex;
+                    float shapeH = sh * 6 + p * 12; 
+                    
+                    if (shapeType == PdfShapeType.Polygon)
+                    {
+                         var points = element.FindPropertyRelative("points");
+                         shapeH += EditorGUI.GetPropertyHeight(points, true) + p;
+                    }
+                    else if (shapeType == PdfShapeType.Path)
+                    {
+                         var segments = element.FindPropertyRelative("pathSegments");
+                         shapeH += EditorGUI.GetPropertyHeight(segments, true) + p;
+                    }
+                    return shapeH;
                 default: return sh + p * 4;
             }
         }
@@ -446,7 +567,8 @@ namespace UnityProductivityTools.Editor.PdfGenerator
             element.FindPropertyRelative("fontSize").intValue = 11;
             element.FindPropertyRelative("isBold").boolValue = false;
             element.FindPropertyRelative("color").colorValue = Color.black;
-            element.FindPropertyRelative("spacingAfter").floatValue = 10f;
+            element.FindPropertyRelative("color").colorValue = Color.black;
+            element.FindPropertyRelative("bottomMargin").floatValue = 10f;
             element.FindPropertyRelative("lineHeight").floatValue = 1.2f;
             element.FindPropertyRelative("leftMargin").floatValue = 50f;
             element.FindPropertyRelative("rightMargin").floatValue = 50f;
@@ -483,6 +605,23 @@ namespace UnityProductivityTools.Editor.PdfGenerator
                     cells.GetArrayElementAtIndex(c).FindPropertyRelative("text").stringValue = $"R{r}C{c}";
                 }
             }
+            serializedObject.ApplyModifiedProperties();
+        }
+
+        private void AddShapePreset(SerializedProperty elementsProp)
+        {
+            elementsProp.arraySize++;
+            var el = elementsProp.GetArrayElementAtIndex(elementsProp.arraySize - 1);
+            ResetElementToDefaults(el);
+            el.FindPropertyRelative("type").enumValueIndex = (int)PdfElementType.Shape;
+            el.FindPropertyRelative("shapeType").enumValueIndex = (int)PdfShapeType.RoundedRectangle;
+            el.FindPropertyRelative("cornerRadius").floatValue = 10f;
+            el.FindPropertyRelative("useFill").boolValue = true;
+            el.FindPropertyRelative("fillColor").colorValue = new Color(0.8f, 0.9f, 1f);
+            el.FindPropertyRelative("borderColor").colorValue = new Color(0.2f, 0.4f, 0.6f);
+            el.FindPropertyRelative("opacity").floatValue = 0.5f;
+            el.FindPropertyRelative("height").floatValue = 40f; // Default height
+            el.FindPropertyRelative("width").floatValue = 0f; // Auto width
             serializedObject.ApplyModifiedProperties();
         }
     }

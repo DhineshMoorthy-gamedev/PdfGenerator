@@ -8,7 +8,33 @@ namespace UnityProductivityTools.Runtime
         Text,
         Divider,
         VerticalSpace,
-        Table
+        Table,
+        Shape
+    }
+
+    public enum PdfShapeType
+    {
+        Line,
+        Rectangle,
+        RoundedRectangle,
+        Circle,
+        Ellipse,
+        Polygon,
+        Path
+    }
+
+    public enum PdfLineJoin
+    {
+        Miter = 0,
+        Round = 1,
+        Bevel = 2
+    }
+
+    public enum PdfLineCap
+    {
+        Butt = 0,
+        Round = 1,
+        ProjectingSquare = 2
     }
 
     public enum PdfAlignment
@@ -29,6 +55,23 @@ namespace UnityProductivityTools.Runtime
     {
         Solid,
         Dashed
+    }
+
+    public enum PdfPathCommand
+    {
+        MoveTo,
+        LineTo,
+        CurveTo,
+        Close
+    }
+
+    [System.Serializable]
+    public struct PdfPathSegment
+    {
+        public PdfPathCommand command;
+        public Vector2 p1; // Point for Move/Line, Control 1 for Curve
+        public Vector2 p2; // Control 2 for Curve
+        public Vector2 p3; // End point for Curve
     }
 
     [System.Serializable]
@@ -84,8 +127,8 @@ namespace UnityProductivityTools.Runtime
         public PdfAlignment alignment = PdfAlignment.Left;
         
         // Spacing & Layout
-        public float spacingBefore = 0f;
-        public float spacingAfter = 10f;
+        public float topMargin = 0f;
+        public float bottomMargin = 10f;
         public float leftMargin = 50f;
         public float rightMargin = 50f;
         public float lineHeight = 1.2f; // Multiplier for line spacing in wrapped text
@@ -95,6 +138,10 @@ namespace UnityProductivityTools.Runtime
         public float customX = 0f;
         public float customY = 0f;
         public float maxWidth = 0f; // 0 = auto-calculate based on margins
+        
+        // Shape Dimensions (Specific to Shape elements)
+        public float width = 0f;
+        public float height = 0f;
         
         // Element-Specific Options
         public float dividerThickness = 1f; // For Divider type
@@ -111,6 +158,20 @@ namespace UnityProductivityTools.Runtime
         public Color tableHeaderColor = new Color(0.9f, 0.9f, 0.9f);
         public List<float> columnWidths = new List<float>(); // Optional overrides
 
+        // Shape Options
+        public PdfShapeType shapeType = PdfShapeType.Rectangle;
+        public float cornerRadius = 0f;
+        public List<Vector2> points = new List<Vector2>();
+        public List<PdfPathSegment> pathSegments = new List<PdfPathSegment>();
+        public Color fillColor = Color.clear;
+        public bool useFill = false;
+        public bool useStroke = true;
+        public float opacity = 1.0f;
+        public PdfLineJoin lineJoin = PdfLineJoin.Miter;
+        public PdfLineCap lineCap = PdfLineCap.Butt;
+        public float[] dashPatternArray;
+        public float dashPhase = 0f;
+
         public PdfElement() { }
 
         public static PdfElement CreateHeader(string text) => new PdfElement { 
@@ -119,13 +180,13 @@ namespace UnityProductivityTools.Runtime
             fontSize = 18, 
             isBold = true, 
             alignment = PdfAlignment.Center, 
-            spacingAfter = 20,
+            bottomMargin = 20,
             lineHeight = 1.3f
         };
         
         public static PdfElement CreateDivider() => new PdfElement { 
             type = PdfElementType.Divider, 
-            spacingAfter = 20 
+            bottomMargin = 20 
         };
     }
     [System.Serializable]

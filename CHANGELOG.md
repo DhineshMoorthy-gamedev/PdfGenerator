@@ -2,6 +2,39 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.3.0] - 2026-01-31
+
+### Added
+- **Vector Graphics & Shape System**: Complete shape drawing capabilities for PDF generation.
+    - Basic shapes: Rectangle, Rounded Rectangle, Circle, Ellipse, Line
+    - Complex shapes: Polygon (custom vertices), Path (with Bezier curve support)
+    - Shape-specific properties: `width` and `height` for precise dimension control
+- **Bezier Curve Support**: Implemented cubic Bezier curves for smooth, vector-based paths.
+    - New `PdfPathSegment` structure with commands: MoveTo, LineTo, CurveTo, Close
+    - `DrawPath` method in `PdfGenerator` for rendering complex curved shapes
+- **Advanced Shape Styling**:
+    - Fill and stroke controls with separate colors
+    - Opacity/transparency support via ExtGState
+    - Line styling: thickness, dash patterns, line joins (Miter, Round, Bevel), line caps (Butt, Round, Square)
+- **Shape-Specific Editor UI**: Inspector now shows contextual controls based on shape type.
+    - Line: Length control
+    - Circle: Diameter control (auto-syncs width/height)
+    - Ellipse/Rectangle: Separate width and height
+    - Polygon: Dynamic points list editor
+    - Path: Dynamic path segments list editor with Bezier controls
+- **Demo Scripts**: Added `ShapesDemo.cs` with examples of all shape types including heart and wave patterns.
+
+### Fixed
+- **Shape Layout Overlap**: Fixed critical issue where shapes were overlapping subsequent elements.
+    - Added proper cursor advancement after drawing shapes
+    - Corrected coordinate space for Polygons and Paths to draw downwards from cursor position
+- **Shape Property Refactor**: Replaced reuse of `fontSize` and `maxWidth` with dedicated `width` and `height` properties for shapes.
+
+### Changed
+- Updated `PdfReport.DrawShape` to use new `width` and `height` properties
+- Improved shape rendering consistency across all shape types
+- Enhanced `PdfReportEditor` with dynamic height calculation for shape property lists
+
 ## [1.2.0] - 2026-01-31
 
 ### Added

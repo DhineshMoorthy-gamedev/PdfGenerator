@@ -94,18 +94,19 @@ namespace UnityProductivityTools.Runtime
 
                 foreach (var element in page.elements)
                 {
-                    // Apply spacing before
-                    if (element.spacingBefore > 0)
+                    // Apply top margin
+                    if (element.topMargin > 0)
                     {
-                        pdf.AddVerticalSpace(element.spacingBefore);
+                        pdf.AddVerticalSpace(element.topMargin);
                     }
 
                     // Check for page overflow before drawing
-                    float spaceNeeded = element.spacingAfter + (element.fontSize * element.lineHeight);
+                    float contentHeight = (element.type == PdfElementType.Shape) ? element.height : (element.fontSize * element.lineHeight);
+                    float spaceNeeded = element.bottomMargin + contentHeight;
                     pdf.CheckPageOverflow(spaceNeeded);
 
                     DrawElement(pdf, element);
-                    pdf.AddVerticalSpace(element.spacingAfter);
+                    pdf.AddVerticalSpace(element.bottomMargin);
                 }
             }
 
@@ -176,7 +177,81 @@ namespace UnityProductivityTools.Runtime
                 case PdfElementType.Table:
                     DrawTable(pdf, el);
                     break;
+
+                case PdfElementType.Shape:
+                    DrawShape(pdf, el, xPosition);
+                    pdf.AddVerticalSpace(el.height);
+                    break;
             }
+        }
+
+        private void DrawShape(PdfGenerator pdf, PdfElement el, float x)
+        {
+            float y = pdf.cursorY;
+            float w = el.width > 0 ? el.width : (595f - x - (el.rightMargin == 50f ? pdf.rightMargin : el.rightMargin));
+            float h = el.height;
+
+            // Apply styling
+            pdf.SetLineWidth(el.borderThickness);
+            pdf.SetLineJoin(el.lineJoin);
+            pdf.SetLineCap(el.lineCap);
+            pdf.SetDashPattern(el.dashPatternArray, el.dashPhase);
+            pdf.SetOpacity(el.opacity);
+
+            if (el.useStroke) pdf.SetColor(el.borderColor);
+            
+            switch (el.shapeType)
+            {
+                case PdfShapeType.Rectangle:
+                    if (el.useFill) { pdf.SetColor(el.fillColor); pdf.DrawRect(x, y - h, w, h, true); }
+                    if (el.useStroke) { pdf.SetColor(el.borderColor); pdf.DrawRect(x, y - h, w, h, false); }
+                    break;
+
+                case PdfShapeType.RoundedRectangle:
+                    if (el.useFill) { pdf.SetColor(el.fillColor); pdf.DrawRoundedRect(x, y - h, w, h, el.cornerRadius, true); }
+                    if (el.useStroke) { pdf.SetColor(el.borderColor); pdf.DrawRoundedRect(x, y - h, w, h, el.cornerRadius, false); }
+                    break;
+
+                case PdfShapeType.Circle:
+                case PdfShapeType.Ellipse:
+                    float radiusX = w / 2f;
+                    float radiusY = h / 2f;
+                    float centerX = x + radiusX;
+                    float centerY = y - radiusY;
+                    if (el.useFill) { pdf.SetColor(el.fillColor); pdf.DrawEllipse(centerX, centerY, radiusX, radiusY, true); }
+                    if (el.useStroke) { pdf.SetColor(el.borderColor); pdf.DrawEllipse(centerX, centerY, radiusX, radiusY, false); }
+                    break;
+
+                case PdfShapeType.Polygon:
+                    if (el.points != null && el.points.Count > 0)
+                    {
+                        // Points are relative to bottom-left of shape area (x, y-h)
+                        Vector2[] worldPoints = new Vector2[el.points.Count];
+                        for (int i = 0; i < el.points.Count; i++)
+                            worldPoints[i] = new Vector2(x + el.points[i].x, (y - h) + el.points[i].y);
+                        
+                        if (el.useFill) { pdf.SetColor(el.fillColor); pdf.DrawPolygon(worldPoints, true); }
+                        if (el.useStroke) { pdf.SetColor(el.borderColor); pdf.DrawPolygon(worldPoints, false); }
+                    }
+                    break;
+
+                case PdfShapeType.Path:
+                    if (el.pathSegments != null && el.pathSegments.Count > 0)
+                    {
+                        if (el.useFill) { pdf.SetColor(el.fillColor); pdf.DrawPath(el.pathSegments, x, y - h, true); }
+                        if (el.useStroke) { pdf.SetColor(el.borderColor); pdf.DrawPath(el.pathSegments, x, y - h, false); }
+                    }
+                    break;
+                
+                case PdfShapeType.Line:
+                    pdf.DrawLine(x, y, x + w, y);
+                    break;
+            }
+
+            // Reset styles to avoid affecting other elements
+            pdf.SetLineWidth(1f);
+            pdf.SetDashPattern(null, 0);
+            pdf.SetOpacity(1.0f);
         }
 
         private void DrawTable(PdfGenerator pdf, PdfElement el)
