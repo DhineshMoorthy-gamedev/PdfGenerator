@@ -87,10 +87,12 @@ namespace UnityProductivityTools.Runtime
             DrawText(text, x, size, isBold);
         }
 
-        public void DrawLine(float xStart, float xEnd)
+        public void DrawLine(float xStart, float xEnd) => DrawLine(xStart, cursorY, xEnd, cursorY);
+
+        public void DrawLine(float x1, float y1, float x2, float y2)
         {
             currentContent.AppendLine("ET");
-            currentContent.AppendLine($"{xStart} {cursorY} m {xEnd} {cursorY} l S");
+            currentContent.AppendLine($"{x1:F3} {y1:F3} m {x2:F3} {y2:F3} l S");
             currentContent.AppendLine("BT");
         }
 

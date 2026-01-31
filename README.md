@@ -6,9 +6,11 @@ A lightweight, dependency-free PDF generator utility for Unity. This package all
 
 - **Dependency-Free**: No external libraries required.
 - **Runtime Support**: Generate PDFs on any platform supported by Unity.
+- **Multi-Page Support**: Organize reports into multiple pages with explicit control.
+- **Custom Margins**: Set global margins or override them per page for ultimate layout control.
+- **Advanced Tables**: Professional table engine with wrapping, colspan, and rich styling.
 - **Modular Elements**: Build reports using modular elements like Headers, Text blocks, Dividers, and more.
-- **Customizable**: Control margins, font sizes, colors, and alignments.
-- **Editor Tooling**: Includes a custom inspector and an Editor Window for quick exporting.
+- **Editor Tooling**: Powerful custom inspector with drag-and-drop reordering and interactive table grid.
 
 ## Installation
 
@@ -28,8 +30,9 @@ A lightweight, dependency-free PDF generator utility for Unity. This package all
 ### Using the PdfReport Component
 
 1. Add the `PdfReport` component to any GameObject.
-2. Add elements to the **Elements** list in the Inspector.
-3. Call `Generate()` via script or use the **Generate Report** context menu item.
+2. Add a **Page** to the **Pages** list.
+3. Within the page, add elements to the **Elements** list.
+4. Call `Generate()` via script or use the **Generate Report** context menu item.
 
 ```csharp
 using UnityProductivityTools.Runtime;
@@ -61,15 +64,17 @@ pdf.Save("CustomReport.pdf");
 
 ## Advanced Tables
 
-The 1.1 update introduces a professional-grade table engine:
-- **Rich Styling**: Custom border colors, dashed lines, and per-cell background colors.
-- **Complex Layouts**: Support for column spanning (`colspan`) and automatic text wrapping.
-- **Precision Control**: Fine-tune cell content with per-cell alignment, vertical alignment, and X/Y offsets.
-- **Inspector UI**: A powerful new "Advanced Cells" grid for managing complex table data directly in Unity.
+The 1.2 update introduces a professional-grade multi-page engine:
+- **Flexible Pages**: Add as many pages as needed, each with its own name and margin overrides.
+- **Nested Controls**: Manage elements within pages using a clean, hierarchical ReorderableList.
+- **Table Power**: The table editor now features a "Cell Details" mode for alignment and merging, plus fixed column width overrides.
+- **Auto-Migration**: Old single-list reports from version 1.0/1.1 are automatically migrated to page 1.
 
 ## Documentation
 
 For detailed API information, please refer to the source code or the [Wiki](https://github.com/UnityProductivityTools/PdfGenerator/wiki).
+
+- [Sequence Diagram (Architecture)](Documentation/SequenceDiagram.md)
 
 ## License
 

@@ -98,7 +98,7 @@ namespace UnityProductivityTools.Runtime
         
         // Element-Specific Options
         public float dividerThickness = 1f; // For Divider type
-        public float dividerWidth = 495f; // For Divider type
+        public float dividerWidth = 0f; // 0 = auto-calculate based on margins
 
         // Table Options
         public List<PdfTableRow> tableData = new List<PdfTableRow>();
@@ -127,5 +127,20 @@ namespace UnityProductivityTools.Runtime
             type = PdfElementType.Divider, 
             spacingAfter = 20 
         };
+    }
+    [System.Serializable]
+    public class PdfPage
+    {
+        public string pageName = "New Page";
+        public List<PdfElement> elements = new List<PdfElement>();
+        
+        public bool useOverrides = false;
+        public float topMargin = 50f;
+        public float bottomMargin = 50f;
+        public float leftMargin = 50f;
+        public float rightMargin = 50f;
+
+        public PdfPage() { }
+        public PdfPage(string name) => pageName = name;
     }
 }

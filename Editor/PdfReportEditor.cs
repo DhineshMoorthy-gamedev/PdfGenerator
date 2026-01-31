@@ -8,428 +8,21 @@ namespace UnityProductivityTools.Editor.PdfGenerator
     [CustomEditor(typeof(PdfReport))]
     public class PdfReportEditor : UnityEditor.Editor
     {
-        private ReorderableList reorderableList;
-        private SerializedProperty elementsProp;
+        private SerializedProperty pagesProp;
         private SerializedProperty fileNameProp;
         private SerializedProperty autoOpenProp;
         private SerializedProperty topMarginProp;
         private SerializedProperty bottomMarginProp;
-        //private SerializedProperty leftMarginProp;
-        //private SerializedProperty rightMarginProp;
+
+        private System.Collections.Generic.Dictionary<string, ReorderableList> elementLists = new System.Collections.Generic.Dictionary<string, ReorderableList>();
 
         private void OnEnable()
         {
-            elementsProp = serializedObject.FindProperty("elements");
+            pagesProp = serializedObject.FindProperty("pages");
             fileNameProp = serializedObject.FindProperty("fileName");
             autoOpenProp = serializedObject.FindProperty("autoOpenAfterSave");
             topMarginProp = serializedObject.FindProperty("topMargin");
             bottomMarginProp = serializedObject.FindProperty("bottomMargin");
-            //leftMarginProp = serializedObject.FindProperty("leftMargin");
-            //rightMarginProp = serializedObject.FindProperty("rightMargin");
-
-            reorderableList = new ReorderableList(serializedObject, elementsProp, true, true, true, true);
-
-            reorderableList.drawHeaderCallback = (Rect rect) => {
-                EditorGUI.LabelField(rect, "Report Content Elements");
-            };
-
-            reorderableList.drawElementCallback = (Rect rect, int index, bool isActive, bool isFocused) => {
-                var element = elementsProp.GetArrayElementAtIndex(index);
-                var type = element.FindPropertyRelative("type");
-                var text = element.FindPropertyRelative("text");
-                var fontSize = element.FindPropertyRelative("fontSize");
-                var isBold = element.FindPropertyRelative("isBold");
-                var color = element.FindPropertyRelative("color");
-                var alignment = element.FindPropertyRelative("alignment");
-                var spacing = element.FindPropertyRelative("spacingAfter");
-                var spacingBefore = element.FindPropertyRelative("spacingBefore");
-                var leftMargin = element.FindPropertyRelative("leftMargin");
-                var rightMargin = element.FindPropertyRelative("rightMargin");
-                var lineHeight = element.FindPropertyRelative("lineHeight");
-                var maxWidth = element.FindPropertyRelative("maxWidth");
-                var useCustomPosition = element.FindPropertyRelative("useCustomPosition");
-                var customX = element.FindPropertyRelative("customX");
-                var customY = element.FindPropertyRelative("customY");
-                var dividerThickness = element.FindPropertyRelative("dividerThickness");
-                var dividerWidth = element.FindPropertyRelative("dividerWidth");
-
-                float singleLineHeight = EditorGUIUtility.singleLineHeight;
-                float padding = 2f;
-
-                // First row: Type and Main Field
-                Rect typeRect = new Rect(rect.x, rect.y + padding, 100, singleLineHeight);
-                EditorGUI.PropertyField(typeRect, type, GUIContent.none);
-
-                PdfElementType elementType = (PdfElementType)type.enumValueIndex;
-
-                if (elementType == PdfElementType.Text)
-                {
-                    Rect textRect = new Rect(rect.x + 105, rect.y + padding, rect.width - 105, singleLineHeight);
-                    EditorGUI.PropertyField(textRect, text, new GUIContent("Text Content"));
-
-                    // Styling row (Row 2)
-                    float yOffset = singleLineHeight + padding * 2;
-                    Rect sizeLabelRect = new Rect(rect.x, rect.y + yOffset, 35, singleLineHeight);
-                    EditorGUI.LabelField(sizeLabelRect, "Size:");
-                    Rect sizeRect = new Rect(rect.x + 35, rect.y + yOffset, 35, singleLineHeight);
-                    EditorGUI.PropertyField(sizeRect, fontSize, GUIContent.none);
-
-                    Rect boldRect = new Rect(rect.x + 75, rect.y + yOffset, 50, singleLineHeight);
-                    isBold.boolValue = EditorGUI.ToggleLeft(boldRect, "Bold", isBold.boolValue);
-
-                    Rect colorRect = new Rect(rect.x + 130, rect.y + yOffset, 45, singleLineHeight);
-                    EditorGUI.PropertyField(colorRect, color, GUIContent.none);
-
-                    Rect alignRect = new Rect(rect.x + 180, rect.y + yOffset, rect.width - 180, singleLineHeight);
-                    EditorGUI.PropertyField(alignRect, alignment, GUIContent.none);
-
-                    // Row 3: Margins & Line Height
-                    yOffset += singleLineHeight + padding;
-                    Rect lMarginLabelRect = new Rect(rect.x, rect.y + yOffset, 75, singleLineHeight);
-                    EditorGUI.LabelField(lMarginLabelRect, "Left Margin:");
-                    Rect lMarginRect = new Rect(rect.x + 80, rect.y + yOffset, 40, singleLineHeight);
-                    EditorGUI.PropertyField(lMarginRect, leftMargin, GUIContent.none);
-
-                    Rect rMarginLabelRect = new Rect(rect.x + 130, rect.y + yOffset, 80, singleLineHeight);
-                    EditorGUI.LabelField(rMarginLabelRect, "Right Margin:");
-                    Rect rMarginRect = new Rect(rect.x + 215, rect.y + yOffset, 40, singleLineHeight);
-                    EditorGUI.PropertyField(rMarginRect, rightMargin, GUIContent.none);
-
-                    Rect lhLabelRect = new Rect(rect.x + 265, rect.y + yOffset, 40, singleLineHeight);
-                    EditorGUI.LabelField(lhLabelRect, "Line H:");
-                    Rect lhRect = new Rect(rect.x + 310, rect.y + yOffset, 35, singleLineHeight);
-                    EditorGUI.PropertyField(lhRect, lineHeight, GUIContent.none);
-
-                    // Row 4: Spacing
-                    yOffset += singleLineHeight + padding;
-                    Rect spBeforeLabelRect = new Rect(rect.x, rect.y + yOffset, 85, singleLineHeight);
-                    EditorGUI.LabelField(spBeforeLabelRect, "Space Before:");
-                    Rect spBeforeRect = new Rect(rect.x + 90, rect.y + yOffset, 40, singleLineHeight);
-                    EditorGUI.PropertyField(spBeforeRect, spacingBefore, GUIContent.none);
-
-                    Rect spAfterLabelRect = new Rect(rect.x + 140, rect.y + yOffset, 80, singleLineHeight);
-                    EditorGUI.LabelField(spAfterLabelRect, "Space After:");
-                    Rect spAfterRect = new Rect(rect.x + 225, rect.y + yOffset, 40, singleLineHeight);
-                    EditorGUI.PropertyField(spAfterRect, spacing, GUIContent.none);
-
-                    // Row 5: Max Width & Custom Position
-                    yOffset += singleLineHeight + padding;
-                    Rect mwLabelRect = new Rect(rect.x, rect.y + yOffset, 65, singleLineHeight);
-                    EditorGUI.LabelField(mwLabelRect, "Max Width:");
-                    Rect mwRect = new Rect(rect.x + 70, rect.y + yOffset, 40, singleLineHeight);
-                    EditorGUI.PropertyField(mwRect, maxWidth, GUIContent.none);
-
-                    Rect cpRect = new Rect(rect.x + 120, rect.y + yOffset, 120, singleLineHeight);
-                    useCustomPosition.boolValue = EditorGUI.ToggleLeft(cpRect, "Custom Position", useCustomPosition.boolValue);
-
-                    if (useCustomPosition.boolValue)
-                    {
-                        Rect cxLabelRect = new Rect(rect.x + 245, rect.y + yOffset, 15, singleLineHeight);
-                        EditorGUI.LabelField(cxLabelRect, "X");
-                        Rect cxRect = new Rect(rect.x + 260, rect.y + yOffset, 40, singleLineHeight);
-                        EditorGUI.PropertyField(cxRect, customX, GUIContent.none);
-
-                        Rect cyLabelRect = new Rect(rect.x + 305, rect.y + yOffset, 15, singleLineHeight);
-                        EditorGUI.LabelField(cyLabelRect, "Y");
-                        Rect cyRect = new Rect(rect.x + 320, rect.y + yOffset, 40, singleLineHeight);
-                        EditorGUI.PropertyField(cyRect, customY, GUIContent.none);
-                    }
-                }
-                else if (elementType == PdfElementType.Divider)
-                {
-                    // Divider options (Row 2) - Spacing and Thickness/Width
-                    float yOffset = singleLineHeight + padding * 2;
-                    Rect thickLabelRect = new Rect(rect.x, rect.y + yOffset, 60, singleLineHeight);
-                    EditorGUI.LabelField(thickLabelRect, "Thickness:");
-                    Rect thickRect = new Rect(rect.x + 65, rect.y + yOffset, 40, singleLineHeight);
-                    EditorGUI.PropertyField(thickRect, dividerThickness, GUIContent.none);
-
-                    Rect widthLabelRect = new Rect(rect.x + 115, rect.y + yOffset, 45, singleLineHeight);
-                    EditorGUI.LabelField(widthLabelRect, "Width:");
-                    Rect widthRect = new Rect(rect.x + 160, rect.y + yOffset, 60, singleLineHeight);
-                    EditorGUI.PropertyField(widthRect, dividerWidth, GUIContent.none);
-
-                    // Row 3: Spacing
-                    yOffset += singleLineHeight + padding;
-                    Rect spBeforeLabelRect = new Rect(rect.x, rect.y + yOffset, 85, singleLineHeight);
-                    EditorGUI.LabelField(spBeforeLabelRect, "Space Before:");
-                    Rect spBeforeRect = new Rect(rect.x + 90, rect.y + yOffset, 40, singleLineHeight);
-                    EditorGUI.PropertyField(spBeforeRect, spacingBefore, GUIContent.none);
-
-                    Rect spAfterLabelRect = new Rect(rect.x + 140, rect.y + yOffset, 80, singleLineHeight);
-                    EditorGUI.LabelField(spAfterLabelRect, "Space After:");
-                    Rect spAfterRect = new Rect(rect.x + 225, rect.y + yOffset, 40, singleLineHeight);
-                    EditorGUI.PropertyField(spAfterRect, spacing, GUIContent.none);
-                }
-                else if (elementType == PdfElementType.VerticalSpace)
-                {
-                    Rect textRect = new Rect(rect.x + 105, rect.y + padding, rect.width - 105, singleLineHeight);
-                    EditorGUI.PropertyField(textRect, text, new GUIContent("Amount"));
-                }
-                else if (elementType == PdfElementType.Table)
-                {
-                    float yOffset = singleLineHeight + padding * 2;
-                    var tableDataProp = element.FindPropertyRelative("tableData");
-                    
-                    // --- Styling Row 1 ---
-                    Rect sizeLabelRect = new Rect(rect.x, rect.y + yOffset, 35, singleLineHeight);
-                    EditorGUI.LabelField(sizeLabelRect, "Size:");
-                    Rect sizeRect = new Rect(rect.x + 35, rect.y + yOffset, 35, singleLineHeight);
-                    EditorGUI.PropertyField(sizeRect, fontSize, GUIContent.none);
-
-                    Rect boldRect = new Rect(rect.x + 75, rect.y + yOffset, 50, singleLineHeight);
-                    isBold.boolValue = EditorGUI.ToggleLeft(boldRect, "Bold", isBold.boolValue);
-
-                    Rect colorRect = new Rect(rect.x + 130, rect.y + yOffset, 45, singleLineHeight);
-                    EditorGUI.PropertyField(colorRect, color, GUIContent.none);
-
-                    Rect alignRect = new Rect(rect.x + 180, rect.y + yOffset, 60, singleLineHeight);
-                    EditorGUI.PropertyField(alignRect, alignment, GUIContent.none);
-
-                    Rect borderRect = new Rect(rect.x + 245, rect.y + yOffset, 65, singleLineHeight);
-                    var showBordersProp = element.FindPropertyRelative("showTableBorders");
-                    showBordersProp.boolValue = EditorGUI.ToggleLeft(borderRect, "Borders", showBordersProp.boolValue);
-
-                    if (showBordersProp.boolValue)
-                    {
-                        Rect thicknessLabelRect = new Rect(rect.x + 310, rect.y + yOffset, 30, singleLineHeight);
-                        EditorGUI.LabelField(thicknessLabelRect, "Th:");
-                        Rect thicknessRect = new Rect(rect.x + 340, rect.y + yOffset, 25, singleLineHeight);
-                        EditorGUI.PropertyField(thicknessRect, element.FindPropertyRelative("borderThickness"), GUIContent.none);
-
-                        yOffset += singleLineHeight + padding;
-                        Rect bColorLabelRect = new Rect(rect.x, rect.y + yOffset, 60, singleLineHeight);
-                        EditorGUI.LabelField(bColorLabelRect, "B-Color:");
-                        Rect bColorRect = new Rect(rect.x + 65, rect.y + yOffset, 50, singleLineHeight);
-                        EditorGUI.PropertyField(bColorRect, element.FindPropertyRelative("borderColor"), GUIContent.none);
-
-                        Rect bStyleLabelRect = new Rect(rect.x + 125, rect.y + yOffset, 60, singleLineHeight);
-                        EditorGUI.LabelField(bStyleLabelRect, "B-Style:");
-                        Rect bStyleRect = new Rect(rect.x + 190, rect.y + yOffset, 65, singleLineHeight);
-                        EditorGUI.PropertyField(bStyleRect, element.FindPropertyRelative("borderStyle"), GUIContent.none);
-                    }
-
-                    // --- Styling Row 2 (Headers) ---
-                    yOffset += singleLineHeight + padding;
-                    Rect paddingLabelRect = new Rect(rect.x, rect.y + yOffset, 35, singleLineHeight);
-                    EditorGUI.LabelField(paddingLabelRect, "Pad:");
-                    Rect paddingRect = new Rect(rect.x + 35, rect.y + yOffset, 30, singleLineHeight);
-                    EditorGUI.PropertyField(paddingRect, element.FindPropertyRelative("cellPadding"), GUIContent.none);
-
-                    Rect headerToggleRect = new Rect(rect.x + 75, rect.y + yOffset, 85, singleLineHeight);
-                    var hasHeaderProp = element.FindPropertyRelative("hasTableHeader");
-                    hasHeaderProp.boolValue = EditorGUI.ToggleLeft(headerToggleRect, "Header", hasHeaderProp.boolValue);
-
-                    Rect advancedToggleRect = new Rect(rect.x + 165, rect.y + yOffset, 120, singleLineHeight);
-                    bool showAdvanced = EditorPrefs.GetBool("PdfGenerator_ShowAdvancedCells", false);
-                    bool newAdvanced = EditorGUI.ToggleLeft(advancedToggleRect, "Advanced Cells", showAdvanced);
-                    if (newAdvanced != showAdvanced) EditorPrefs.SetBool("PdfGenerator_ShowAdvancedCells", newAdvanced);
-
-                    if (hasHeaderProp.boolValue)
-                    {
-                        yOffset += singleLineHeight + padding;
-                        Rect headerColorLabelRect = new Rect(rect.x, rect.y + yOffset, 80, singleLineHeight);
-                        EditorGUI.LabelField(headerColorLabelRect, "H-Color:");
-                        Rect headerColorRect = new Rect(rect.x + 85, rect.y + yOffset, 60, singleLineHeight);
-                        EditorGUI.PropertyField(headerColorRect, element.FindPropertyRelative("tableHeaderColor"), GUIContent.none);
-                    }
-
-                    // --- Layout / Column Widths ---
-                    yOffset += singleLineHeight + padding;
-                    Rect colWidthsLabelRect = new Rect(rect.x, rect.y + yOffset, 100, singleLineHeight);
-                    EditorGUI.LabelField(colWidthsLabelRect, "Col Widths (0=Auto):");
-                    
-                    int currentCols = tableDataProp.arraySize > 0 ? tableDataProp.GetArrayElementAtIndex(0).FindPropertyRelative("cells").arraySize : 0;
-                    var colWidthsProp = element.FindPropertyRelative("columnWidths");
-                    if (colWidthsProp.arraySize != currentCols) colWidthsProp.arraySize = currentCols;
-
-                    float fieldWidth = (rect.width - 120) / Mathf.Max(1, currentCols);
-                    for (int i = 0; i < currentCols; i++)
-                    {
-                        Rect cwRect = new Rect(rect.x + 120 + (i * fieldWidth), rect.y + yOffset, fieldWidth - 2, singleLineHeight);
-                        EditorGUI.PropertyField(cwRect, colWidthsProp.GetArrayElementAtIndex(i), GUIContent.none);
-                    }
-
-                    // --- Table Actions ---
-                    yOffset += singleLineHeight + padding * 2;
-                    Rect btnRect = new Rect(rect.x, rect.y + yOffset, 70, singleLineHeight);
-                    if (GUI.Button(btnRect, "+ Row", EditorStyles.miniButtonLeft))
-                    {
-                        if (tableDataProp.arraySize == 0) tableDataProp.arraySize = 1;
-                        int colCount = tableDataProp.GetArrayElementAtIndex(0).FindPropertyRelative("cells").arraySize;
-                        tableDataProp.arraySize++;
-                        var rowCells = tableDataProp.GetArrayElementAtIndex(tableDataProp.arraySize - 1).FindPropertyRelative("cells");
-                        rowCells.arraySize = Mathf.Max(1, colCount);
-                        // Initialize new cells
-                        for (int i = 0; i < rowCells.arraySize; i++)
-                        {
-                            var cell = rowCells.GetArrayElementAtIndex(i);
-                            cell.FindPropertyRelative("colspan").intValue = 1;
-                            cell.FindPropertyRelative("wrapText").boolValue = true;
-                        }
-                    }
-                    
-                    btnRect.x += 70;
-                    if (GUI.Button(btnRect, "- Row", EditorStyles.miniButtonMid) && tableDataProp.arraySize > 0)
-                    {
-                        tableDataProp.arraySize--;
-                    }
-
-                    btnRect.x += 70;
-                    if (GUI.Button(btnRect, "+ Col", EditorStyles.miniButtonMid))
-                    {
-                        for (int i = 0; i < tableDataProp.arraySize; i++)
-                        {
-                            var cells = tableDataProp.GetArrayElementAtIndex(i).FindPropertyRelative("cells");
-                            cells.arraySize++;
-                            var newCell = cells.GetArrayElementAtIndex(cells.arraySize - 1);
-                            newCell.FindPropertyRelative("text").stringValue = "";
-                            newCell.FindPropertyRelative("colspan").intValue = 1;
-                            newCell.FindPropertyRelative("wrapText").boolValue = true;
-                        }
-                    }
-
-                    btnRect.x += 70;
-                    if (GUI.Button(btnRect, "- Col", EditorStyles.miniButtonMid))
-                    {
-                        for (int i = 0; i < tableDataProp.arraySize; i++)
-                        {
-                            var cells = tableDataProp.GetArrayElementAtIndex(i).FindPropertyRelative("cells");
-                            if (cells.arraySize > 0) cells.arraySize--;
-                        }
-                    }
-
-                    btnRect.x += 70;
-                    if (GUI.Button(btnRect, "Clear", EditorStyles.miniButtonRight))
-                    {
-                        tableDataProp.arraySize = 0;
-                    }
-
-                    yOffset += singleLineHeight + padding * 2;
-
-                    // --- Data Grid ---
-                    int rows = tableDataProp.arraySize;
-                    bool advanced = EditorPrefs.GetBool("PdfGenerator_ShowAdvancedCells", false);
-                    float rowStep = advanced ? (singleLineHeight * 3 + 6) : (singleLineHeight + 2);
-
-                    if (rows > 0)
-                    {
-                        int cols = tableDataProp.GetArrayElementAtIndex(0).FindPropertyRelative("cells").arraySize;
-                        float colWidth = rect.width / Mathf.Max(1, cols);
-
-                        for (int r = 0; r < rows; r++)
-                        {
-                            var rowCells = tableDataProp.GetArrayElementAtIndex(r).FindPropertyRelative("cells");
-                            for (int c = 0; c < cols; c++)
-                            {
-                                Rect cellRect = new Rect(rect.x + (c * colWidth), rect.y + yOffset + (r * rowStep), colWidth - 2, singleLineHeight);
-                                var cellProp = rowCells.GetArrayElementAtIndex(c);
-                                var cellTextProp = cellProp.FindPropertyRelative("text");
-                                
-                                // Row 1: Text Field
-                                EditorGUI.PropertyField(cellRect, cellTextProp, GUIContent.none);
-
-                                if (advanced)
-                                {
-                                    Rect advRect1 = new Rect(cellRect.x, cellRect.y + singleLineHeight + 2, cellRect.width, singleLineHeight);
-                                    float partWidth = advRect1.width / 4f;
-
-                                    // H-Align
-                                    Rect hRect = new Rect(advRect1.x, advRect1.y, partWidth - 2, singleLineHeight);
-                                    var hAlignProp = cellProp.FindPropertyRelative("alignment");
-                                    hAlignProp.enumValueIndex = (int)(PdfAlignment)EditorGUI.EnumPopup(hRect, GUIContent.none, (PdfAlignment)hAlignProp.enumValueIndex, EditorStyles.miniPullDown);
-
-                                    // V-Align
-                                    Rect vRect = new Rect(advRect1.x + partWidth, advRect1.y, partWidth - 2, singleLineHeight);
-                                    var vAlignProp = cellProp.FindPropertyRelative("verticalAlignment");
-                                    vAlignProp.enumValueIndex = (int)(PdfVerticalAlignment)EditorGUI.EnumPopup(vRect, GUIContent.none, (PdfVerticalAlignment)vAlignProp.enumValueIndex, EditorStyles.miniPullDown);
-
-                                    // X Offset
-                                    Rect xRect = new Rect(advRect1.x + partWidth * 2, advRect1.y, partWidth - 2, singleLineHeight);
-                                    EditorGUI.PropertyField(xRect, cellProp.FindPropertyRelative("offsetX"), GUIContent.none);
-
-                                    // Y Offset
-                                    Rect yRect = new Rect(advRect1.x + partWidth * 3, advRect1.y, partWidth - 2, singleLineHeight);
-                                    EditorGUI.PropertyField(yRect, cellProp.FindPropertyRelative("offsetY"), GUIContent.none);
-
-                                    // New Row 2: Styling & Layout
-                                    Rect advRect2 = new Rect(cellRect.x, cellRect.y + (singleLineHeight + 2) * 2, cellRect.width, singleLineHeight);
-                                    float sPartWidth = advRect2.width / 4f;
-
-                                    // Background
-                                    Rect bgRect = new Rect(advRect2.x, advRect2.y, sPartWidth - 2, singleLineHeight);
-                                    EditorGUI.PropertyField(bgRect, cellProp.FindPropertyRelative("backgroundColor"), GUIContent.none);
-
-                                    // Colspan
-                                    Rect csLabelRect = new Rect(advRect2.x + sPartWidth, advRect2.y, 25, singleLineHeight);
-                                    EditorGUI.LabelField(csLabelRect, "CS:");
-                                    Rect csRect = new Rect(advRect2.x + sPartWidth + 25, advRect2.y, sPartWidth - 27, singleLineHeight);
-                                    EditorGUI.PropertyField(csRect, cellProp.FindPropertyRelative("colspan"), GUIContent.none);
-
-                                    // Wrap Toggle
-                                    Rect wrapRect = new Rect(advRect2.x + sPartWidth * 2, advRect2.y, sPartWidth - 2, singleLineHeight);
-                                    var wrapProp = cellProp.FindPropertyRelative("wrapText");
-                                    wrapProp.boolValue = EditorGUI.ToggleLeft(wrapRect, "Wrap", wrapProp.boolValue);
-
-                                    // Image (Simple string field for path)
-                                    Rect imgRect = new Rect(advRect2.x + sPartWidth * 3, advRect2.y, sPartWidth - 2, singleLineHeight);
-                                    EditorGUI.PropertyField(imgRect, cellProp.FindPropertyRelative("imagePath"), GUIContent.none);
-                                }
-                            }
-                        }
-                    }
-                }
-            };
-
-            reorderableList.elementHeightCallback = (index) => {
-                var element = elementsProp.GetArrayElementAtIndex(index);
-                var type = element.FindPropertyRelative("type");
-                
-                float singleLineHeight = EditorGUIUtility.singleLineHeight;
-                float padding = 4f;
-                PdfElementType elementType = (PdfElementType)type.enumValueIndex;
-
-                switch (elementType)
-                {
-                    case PdfElementType.Text:
-                        return (singleLineHeight * 5) + (padding * 12);
-                    case PdfElementType.Divider:
-                        return (singleLineHeight * 3) + (padding * 8);
-                    case PdfElementType.VerticalSpace:
-                        return singleLineHeight + padding * 4;
-                    case PdfElementType.Table:
-                        var tableData = element.FindPropertyRelative("tableData");
-                        int rows = tableData.arraySize;
-                        bool advanced = EditorPrefs.GetBool("PdfGenerator_ShowAdvancedCells", false);
-                        bool isBorders = element.FindPropertyRelative("showTableBorders").boolValue;
-                        bool hasHeader = element.FindPropertyRelative("hasTableHeader").boolValue;
-                        float baseRowsHeight = advanced ? (rows * (singleLineHeight * 3 + 6)) : (rows * (singleLineHeight + 2));
-                        float headerExtra = hasHeader ? singleLineHeight + padding : 0;
-                        float bordersExtra = isBorders ? singleLineHeight + padding : 0;
-                        return (singleLineHeight * 5) + headerExtra + bordersExtra + baseRowsHeight + (padding * 35);
-                    default:
-                        return singleLineHeight + padding * 4;
-                }
-            };
-
-            reorderableList.onAddCallback = (list) => {
-                int index = list.serializedProperty.arraySize;
-                list.serializedProperty.arraySize++;
-                list.index = index;
-                
-                var element = list.serializedProperty.GetArrayElementAtIndex(index);
-                // Reset to sensible defaults for new elements
-                element.FindPropertyRelative("type").enumValueIndex = (int)PdfElementType.Text;
-                element.FindPropertyRelative("text").stringValue = "New Element";
-                element.FindPropertyRelative("fontSize").intValue = 11;
-                element.FindPropertyRelative("isBold").boolValue = false;
-                element.FindPropertyRelative("useCustomPosition").boolValue = false;
-                element.FindPropertyRelative("spacingAfter").floatValue = 10f;
-                element.FindPropertyRelative("lineHeight").floatValue = 1.2f;
-                element.FindPropertyRelative("leftMargin").floatValue = 50f;
-                element.FindPropertyRelative("rightMargin").floatValue = 50f;
-                element.FindPropertyRelative("color").colorValue = Color.black;
-            };
         }
 
         public override void OnInspectorGUI()
@@ -438,35 +31,20 @@ namespace UnityProductivityTools.Editor.PdfGenerator
 
             EditorGUILayout.Space();
             GUILayout.Label("PDF Report Configuration", EditorStyles.boldLabel);
-            EditorGUILayout.HelpBox("Build your report layout by adding and reordering elements below. Each element can be fully customized.", MessageType.Info);
+            EditorGUILayout.HelpBox("This architecture now supports Pages. You can group your content into different pages.", MessageType.Info);
 
             EditorGUILayout.PropertyField(fileNameProp);
             EditorGUILayout.PropertyField(autoOpenProp);
 
             EditorGUILayout.Space();
-            EditorGUILayout.LabelField("Page Margins", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField("Global Default Margins", EditorStyles.boldLabel);
             EditorGUILayout.BeginHorizontal();
             EditorGUILayout.PropertyField(topMarginProp, new GUIContent("Top"));
             EditorGUILayout.PropertyField(bottomMarginProp, new GUIContent("Bottom"));
             EditorGUILayout.EndHorizontal();
-            EditorGUILayout.BeginHorizontal();
-            //EditorGUILayout.PropertyField(leftMarginProp, new GUIContent("Left"));
-            //EditorGUILayout.PropertyField(rightMarginProp, new GUIContent("Right"));
-            EditorGUILayout.EndHorizontal();
 
             EditorGUILayout.Space();
-            reorderableList.DoLayoutList();
-
-            EditorGUILayout.Space();
-            
-            EditorGUILayout.Space();
-            
-            EditorGUILayout.BeginHorizontal();
-            if (GUILayout.Button("Add Header", EditorStyles.miniButtonLeft)) AddPreset(PdfElementType.Text, "New Header", 18, true, PdfAlignment.Center);
-            if (GUILayout.Button("Add Body Text", EditorStyles.miniButtonMid)) AddPreset(PdfElementType.Text, "Enter description...", 10, false, PdfAlignment.Left);
-            if (GUILayout.Button("Add Table", EditorStyles.miniButtonMid)) AddTablePreset();
-            if (GUILayout.Button("Add Divider", EditorStyles.miniButtonRight)) AddPreset(PdfElementType.Divider, "", 10, false, PdfAlignment.Left);
-            EditorGUILayout.EndHorizontal();
+            DrawPagesList();
 
             EditorGUILayout.Space(10);
 
@@ -480,55 +58,431 @@ namespace UnityProductivityTools.Editor.PdfGenerator
             serializedObject.ApplyModifiedProperties();
         }
 
-        private string GetLabelForType(PdfElementType type)
+        private void DrawPagesList()
         {
-            switch (type)
+            EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+            EditorGUILayout.BeginHorizontal();
+            EditorGUILayout.LabelField("Pages", EditorStyles.boldLabel);
+            if (GUILayout.Button("+ Add Page", EditorStyles.miniButton, GUILayout.Width(80)))
             {
-                //case PdfElementType.LabelValue: return "Label";
-                case PdfElementType.VerticalSpace: return "Amount";
-                case PdfElementType.Divider: return "---";
-                default: return "Text";
+                pagesProp.arraySize++;
+                var newPage = pagesProp.GetArrayElementAtIndex(pagesProp.arraySize - 1);
+                newPage.FindPropertyRelative("pageName").stringValue = "New Page " + pagesProp.arraySize;
+                newPage.FindPropertyRelative("elements").ClearArray();
+                newPage.FindPropertyRelative("useOverrides").boolValue = false;
+            }
+            EditorGUILayout.EndHorizontal();
+
+            for (int i = 0; i < pagesProp.arraySize; i++)
+            {
+                var pageProp = pagesProp.GetArrayElementAtIndex(i);
+                var pageName = pageProp.FindPropertyRelative("pageName");
+                var useOverrides = pageProp.FindPropertyRelative("useOverrides");
+
+                EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+                EditorGUILayout.BeginHorizontal();
+                
+                // Foldout state persistence (simple index-based)
+                bool folded = EditorPrefs.GetBool($"PdfPage_{target.GetInstanceID()}_{i}", true);
+                bool newFolded = EditorGUILayout.Foldout(folded, pageName.stringValue, true, EditorStyles.foldoutHeader);
+                if (newFolded != folded) EditorPrefs.SetBool($"PdfPage_{target.GetInstanceID()}_{i}", newFolded);
+
+                if (GUILayout.Button("X", GUILayout.Width(20)))
+                {
+                    if (EditorUtility.DisplayDialog("Delete Page", "Are you sure you want to delete this page and all its content?", "Yes", "No"))
+                    {
+                        pagesProp.DeleteArrayElementAtIndex(i);
+                        break;
+                    }
+                }
+                EditorGUILayout.EndHorizontal();
+
+                if (newFolded)
+                {
+                    EditorGUI.indentLevel++;
+                    EditorGUILayout.PropertyField(pageName);
+                    EditorGUILayout.PropertyField(useOverrides);
+                    if (useOverrides.boolValue)
+                    {
+                        var top = pageProp.FindPropertyRelative("topMargin");
+                        var bottom = pageProp.FindPropertyRelative("bottomMargin");
+                        var left = pageProp.FindPropertyRelative("leftMargin");
+                        var right = pageProp.FindPropertyRelative("rightMargin");
+
+                        float h = EditorGUIUtility.singleLineHeight;
+                        float pad = 2f;
+                        Rect r = EditorGUILayout.GetControlRect(true, h * 2 + pad);
+                        
+                        float half = r.width / 2f;
+                        float labelW = 50;
+
+                        EditorGUI.LabelField(new Rect(r.x, r.y, labelW, h), "Top");
+                        EditorGUI.PropertyField(new Rect(r.x + labelW, r.y, half - labelW - 5, h), top, GUIContent.none);
+                        
+                        EditorGUI.LabelField(new Rect(r.x + half, r.y, labelW, h), "Bottom");
+                        EditorGUI.PropertyField(new Rect(r.x + half + labelW, r.y, half - labelW - 5, h), bottom, GUIContent.none);
+                        
+                        EditorGUI.LabelField(new Rect(r.x, r.y + h + pad, labelW, h), "Left");
+                        EditorGUI.PropertyField(new Rect(r.x + labelW, r.y + h + pad, half - labelW - 5, h), left, GUIContent.none);
+                        
+                        EditorGUI.LabelField(new Rect(r.x + half, r.y + h + pad, labelW, h), "Right");
+                        EditorGUI.PropertyField(new Rect(r.x + half + labelW, r.y + h + pad, half - labelW - 5, h), right, GUIContent.none);
+                    }
+
+                    EditorGUILayout.Space();
+                    DrawElementsList(pageProp.FindPropertyRelative("elements"), i);
+                    EditorGUI.indentLevel--;
+                }
+                EditorGUILayout.EndVertical();
+            }
+            EditorGUILayout.EndVertical();
+        }
+
+        private void DrawElementsList(SerializedProperty elementsProp, int pageIndex)
+        {
+            string listKey = $"{elementsProp.propertyPath}_{pageIndex}";
+            if (!elementLists.TryGetValue(listKey, out var list) || list.serializedProperty.serializedObject != serializedObject)
+            {
+                list = new ReorderableList(serializedObject, elementsProp, true, true, true, true);
+                
+                list.drawHeaderCallback = (Rect rect) => {
+                    EditorGUI.LabelField(rect, "Elements");
+                };
+
+                list.drawElementCallback = (Rect rect, int index, bool isActive, bool isFocused) => {
+                    DrawElementDetails(rect, elementsProp.GetArrayElementAtIndex(index));
+                };
+
+                list.elementHeightCallback = (index) => {
+                    return GetElementHeight(elementsProp.GetArrayElementAtIndex(index));
+                };
+
+                list.onAddCallback = (l) => {
+                    int index = l.serializedProperty.arraySize;
+                    l.serializedProperty.arraySize++;
+                    l.index = index;
+                    var element = l.serializedProperty.GetArrayElementAtIndex(index);
+                    ResetElementToDefaults(element);
+                };
+
+                elementLists[listKey] = list;
+            }
+
+            list.DoLayoutList();
+            
+            // Preset buttons
+            EditorGUILayout.BeginHorizontal();
+            if (GUILayout.Button("+ Header", EditorStyles.miniButtonLeft)) AddPreset(elementsProp, PdfElementType.Text, "Header", 18, true, PdfAlignment.Center);
+            if (GUILayout.Button("+ Text", EditorStyles.miniButtonMid)) AddPreset(elementsProp, PdfElementType.Text, "Body Text", 11, false, PdfAlignment.Left);
+            if (GUILayout.Button("+ Table", EditorStyles.miniButtonMid)) AddTablePreset(elementsProp);
+            if (GUILayout.Button("+ Divider", EditorStyles.miniButtonRight)) AddPreset(elementsProp, PdfElementType.Divider, "", 11, false, PdfAlignment.Left);
+            EditorGUILayout.EndHorizontal();
+        }
+
+        private void DrawElementDetails(Rect rect, SerializedProperty element)
+        {
+            var type = element.FindPropertyRelative("type");
+            var text = element.FindPropertyRelative("text");
+            var fontSize = element.FindPropertyRelative("fontSize");
+            var isBold = element.FindPropertyRelative("isBold");
+            var color = element.FindPropertyRelative("color");
+            var alignment = element.FindPropertyRelative("alignment");
+            var spacing = element.FindPropertyRelative("spacingAfter");
+            var spacingBefore = element.FindPropertyRelative("spacingBefore");
+            var leftMargin = element.FindPropertyRelative("leftMargin");
+            var rightMargin = element.FindPropertyRelative("rightMargin");
+            var lineHeight = element.FindPropertyRelative("lineHeight");
+            var maxWidth = element.FindPropertyRelative("maxWidth");
+            var useCustomPosition = element.FindPropertyRelative("useCustomPosition");
+            var customX = element.FindPropertyRelative("customX");
+            var customY = element.FindPropertyRelative("customY");
+            var dividerThickness = element.FindPropertyRelative("dividerThickness");
+            var dividerWidth = element.FindPropertyRelative("dividerWidth");
+
+            float sh = EditorGUIUtility.singleLineHeight;
+            float p = 2f;
+
+            Rect typeRect = new Rect(rect.x, rect.y + p, 100, sh);
+            EditorGUI.PropertyField(typeRect, type, GUIContent.none);
+
+            PdfElementType elementType = (PdfElementType)type.enumValueIndex;
+
+            if (elementType == PdfElementType.Text)
+            {
+                Rect textRect = new Rect(rect.x + 105, rect.y + p, rect.width - 105, sh);
+                EditorGUI.PropertyField(textRect, text, GUIContent.none);
+
+                float y = sh + p * 2;
+                EditorGUI.LabelField(new Rect(rect.x, rect.y + y, 35, sh), "Size:");
+                EditorGUI.PropertyField(new Rect(rect.x + 35, rect.y + y, 35, sh), fontSize, GUIContent.none);
+                isBold.boolValue = EditorGUI.ToggleLeft(new Rect(rect.x + 75, rect.y + y, 50, sh), "Bold", isBold.boolValue);
+                EditorGUI.PropertyField(new Rect(rect.x + 130, rect.y + y, 45, sh), color, GUIContent.none);
+                EditorGUI.PropertyField(new Rect(rect.x + 180, rect.y + y, rect.width - 180, sh), alignment, GUIContent.none);
+
+                y += sh + p;
+                EditorGUI.LabelField(new Rect(rect.x, rect.y + y, 75, sh), "L-Margin:");
+                EditorGUI.PropertyField(new Rect(rect.x + 80, rect.y + y, 40, sh), leftMargin, GUIContent.none);
+                EditorGUI.LabelField(new Rect(rect.x + 130, rect.y + y, 80, sh), "R-Margin:");
+                EditorGUI.PropertyField(new Rect(rect.x + 215, rect.y + y, 40, sh), rightMargin, GUIContent.none);
+                EditorGUI.LabelField(new Rect(rect.x + 265, rect.y + y, 40, sh), "LH:");
+                EditorGUI.PropertyField(new Rect(rect.x + 310, rect.y + y, 35, sh), lineHeight, GUIContent.none);
+
+                y += sh + p;
+                EditorGUI.LabelField(new Rect(rect.x, rect.y + y, 85, sh), "Pre-Space:");
+                EditorGUI.PropertyField(new Rect(rect.x + 90, rect.y + y, 40, sh), spacingBefore, GUIContent.none);
+                EditorGUI.LabelField(new Rect(rect.x + 140, rect.y + y, 80, sh), "Post-Space:");
+                EditorGUI.PropertyField(new Rect(rect.x + 225, rect.y + y, 40, sh), spacing, GUIContent.none);
+
+                y += sh + p;
+                EditorGUI.LabelField(new Rect(rect.x, rect.y + y, 65, sh), "MaxW:");
+                EditorGUI.PropertyField(new Rect(rect.x + 70, rect.y + y, 40, sh), maxWidth, GUIContent.none);
+                useCustomPosition.boolValue = EditorGUI.ToggleLeft(new Rect(rect.x + 120, rect.y + y, 120, sh), "Custom Pos", useCustomPosition.boolValue);
+                if (useCustomPosition.boolValue)
+                {
+                    EditorGUI.LabelField(new Rect(rect.x + 245, rect.y + y, 15, sh), "X");
+                    EditorGUI.PropertyField(new Rect(rect.x + 260, rect.y + y, 40, sh), customX, GUIContent.none);
+                    EditorGUI.LabelField(new Rect(rect.x + 305, rect.y + y, 15, sh), "Y");
+                    EditorGUI.PropertyField(new Rect(rect.x + 320, rect.y + y, 40, sh), customY, GUIContent.none);
+                }
+            }
+            else if (elementType == PdfElementType.Divider)
+            {
+                float y = sh + p * 2;
+                EditorGUI.LabelField(new Rect(rect.x, rect.y + y, 60, sh), "Thick:");
+                EditorGUI.PropertyField(new Rect(rect.x + 65, rect.y + y, 40, sh), dividerThickness, GUIContent.none);
+                EditorGUI.LabelField(new Rect(rect.x + 115, rect.y + y, 45, sh), "Width:");
+                EditorGUI.PropertyField(new Rect(rect.x + 160, rect.y + y, 60, sh), dividerWidth, GUIContent.none);
+
+                y += sh + p;
+                EditorGUI.LabelField(new Rect(rect.x, rect.y + y, 85, sh), "Pre-Space:");
+                EditorGUI.PropertyField(new Rect(rect.x + 90, rect.y + y, 40, sh), spacingBefore, GUIContent.none);
+                EditorGUI.LabelField(new Rect(rect.x + 140, rect.y + y, 80, sh), "Post-Space:");
+                EditorGUI.PropertyField(new Rect(rect.x + 225, rect.y + y, 40, sh), spacing, GUIContent.none);
+            }
+            else if (elementType == PdfElementType.VerticalSpace)
+            {
+                EditorGUI.PropertyField(new Rect(rect.x + 105, rect.y + p, rect.width - 105, sh), text, new GUIContent("Amount"));
+            }
+            else if (elementType == PdfElementType.Table)
+            {
+                var tableDataProp = element.FindPropertyRelative("tableData");
+                var showBordersProp = element.FindPropertyRelative("showTableBorders");
+                var hasHeaderProp = element.FindPropertyRelative("hasTableHeader");
+                var borderThicknessProp = element.FindPropertyRelative("borderThickness");
+                var borderColorProp = element.FindPropertyRelative("borderColor");
+                var borderStyleProp = element.FindPropertyRelative("borderStyle");
+                var cellPaddingProp = element.FindPropertyRelative("cellPadding");
+                var headerColorProp = element.FindPropertyRelative("tableHeaderColor");
+
+                float y = sh + p * 2;
+                
+                // Row 1: Style
+                EditorGUI.LabelField(new Rect(rect.x, rect.y + y, 35, sh), "Size:");
+                EditorGUI.PropertyField(new Rect(rect.x + 35, rect.y + y, 30, sh), fontSize, GUIContent.none);
+                isBold.boolValue = EditorGUI.ToggleLeft(new Rect(rect.x + 70, rect.y + y, 50, sh), "Bold", isBold.boolValue);
+                EditorGUI.PropertyField(new Rect(rect.x + 125, rect.y + y, 40, sh), color, GUIContent.none);
+                showBordersProp.boolValue = EditorGUI.ToggleLeft(new Rect(rect.x + 170, rect.y + y, 65, sh), "Borders", showBordersProp.boolValue);
+                hasHeaderProp.boolValue = EditorGUI.ToggleLeft(new Rect(rect.x + 240, rect.y + y, 65, sh), "Header", hasHeaderProp.boolValue);
+
+                y += sh + p;
+
+                // Row 2: Borders Advanced
+                if (showBordersProp.boolValue)
+                {
+                    EditorGUI.LabelField(new Rect(rect.x, rect.y + y, 40, sh), "Thick:");
+                    EditorGUI.PropertyField(new Rect(rect.x + 40, rect.y + y, 30, sh), borderThicknessProp, GUIContent.none);
+                    EditorGUI.LabelField(new Rect(rect.x + 75, rect.y + y, 40, sh), "Style:");
+                    EditorGUI.PropertyField(new Rect(rect.x + 115, rect.y + y, 60, sh), borderStyleProp, GUIContent.none);
+                    EditorGUI.LabelField(new Rect(rect.x + 180, rect.y + y, 40, sh), "Color:");
+                    EditorGUI.PropertyField(new Rect(rect.x + 225, rect.y + y, 40, sh), borderColorProp, GUIContent.none);
+                    y += sh + p;
+                }
+
+                // Row 3: Padding & Header Color
+                EditorGUI.LabelField(new Rect(rect.x, rect.y + y, 55, sh), "Padding:");
+                EditorGUI.PropertyField(new Rect(rect.x + 55, rect.y + y, 30, sh), cellPaddingProp, GUIContent.none);
+                if (hasHeaderProp.boolValue)
+                {
+                    EditorGUI.LabelField(new Rect(rect.x + 95, rect.y + y, 80, sh), "Header Color:");
+                    EditorGUI.PropertyField(new Rect(rect.x + 180, rect.y + y, 40, sh), headerColorProp, GUIContent.none);
+                }
+                
+                y += sh + p;
+
+                // Row 3.5: Column Widths
+                var colWidthsProp = element.FindPropertyRelative("columnWidths");
+                EditorGUI.LabelField(new Rect(rect.x, rect.y + y, 65, sh), "Col Widths:");
+                if (GUI.Button(new Rect(rect.x + 70, rect.y + y, 20, sh), "+")) colWidthsProp.arraySize++;
+                if (GUI.Button(new Rect(rect.x + 90, rect.y + y, 20, sh), "-") && colWidthsProp.arraySize > 0) colWidthsProp.arraySize--;
+                
+                float cw_x = rect.x + 115;
+                for (int i = 0; i < colWidthsProp.arraySize; i++)
+                {
+                    float w = 30;
+                    if (cw_x + w > rect.x + rect.width) break;
+                    EditorGUI.PropertyField(new Rect(cw_x, rect.y + y, w, sh), colWidthsProp.GetArrayElementAtIndex(i), GUIContent.none);
+                    cw_x += w + 2;
+                }
+                
+                y += sh + p;
+
+                // Row 3.7: Spacing
+                EditorGUI.LabelField(new Rect(rect.x, rect.y + y, 70, sh), "Pre-Space:");
+                EditorGUI.PropertyField(new Rect(rect.x + 75, rect.y + y, 30, sh), spacingBefore, GUIContent.none);
+                EditorGUI.LabelField(new Rect(rect.x + 115, rect.y + y, 75, sh), "Post-Space:");
+                EditorGUI.PropertyField(new Rect(rect.x + 195, rect.y + y, 30, sh), spacing, GUIContent.none);
+                
+                y += sh + p;
+                
+                // Row 4: Actions
+                Rect btnRect = new Rect(rect.x, rect.y + y, 60, sh);
+                if (GUI.Button(btnRect, "+ Row", EditorStyles.miniButtonLeft))
+                {
+                    int colCount = (tableDataProp.arraySize > 0) ? 
+                        tableDataProp.GetArrayElementAtIndex(0).FindPropertyRelative("cells").arraySize : 2;
+                    
+                    tableDataProp.arraySize++;
+                    var newRow = tableDataProp.GetArrayElementAtIndex(tableDataProp.arraySize - 1);
+                    var newRowCells = newRow.FindPropertyRelative("cells");
+                    newRowCells.arraySize = colCount;
+                    GUI.changed = true;
+                }
+                btnRect.x += 60;
+                if (GUI.Button(btnRect, "- Row", EditorStyles.miniButtonMid) && tableDataProp.arraySize > 0) 
+                {
+                    tableDataProp.arraySize--;
+                    GUI.changed = true;
+                }
+                btnRect.x += 60;
+                if (GUI.Button(btnRect, "+ Col", EditorStyles.miniButtonMid))
+                {
+                    if (tableDataProp.arraySize == 0) tableDataProp.arraySize = 1;
+                    for (int i = 0; i < tableDataProp.arraySize; i++)
+                        tableDataProp.GetArrayElementAtIndex(i).FindPropertyRelative("cells").arraySize++;
+                    GUI.changed = true;
+                }
+                btnRect.x += 60;
+                if (GUI.Button(btnRect, "- Col", EditorStyles.miniButtonMid))
+                {
+                    for (int i = 0; i < tableDataProp.arraySize; i++)
+                    {
+                        var c = tableDataProp.GetArrayElementAtIndex(i).FindPropertyRelative("cells");
+                        if (c.arraySize > 0) c.arraySize--;
+                    }
+                    GUI.changed = true;
+                }
+                btnRect.x += 60;
+                if (GUI.Button(btnRect, "Clear", EditorStyles.miniButtonRight)) 
+                {
+                    tableDataProp.arraySize = 0;
+                    GUI.changed = true;
+                }
+
+                y += sh + p;
+
+                bool showCellDetails = EditorPrefs.GetBool("PdfTable_ShowDetails", false);
+                showCellDetails = GUI.Toggle(new Rect(rect.x + rect.width - 100, rect.y + y - sh - p, 100, sh), showCellDetails, "Cell Details", "Button");
+                if (showCellDetails != EditorPrefs.GetBool("PdfTable_ShowDetails", false)) EditorPrefs.SetBool("PdfTable_ShowDetails", showCellDetails);
+
+                // Data Grid
+                int rows = tableDataProp.arraySize;
+                if (rows > 0)
+                {
+                    int cols = tableDataProp.GetArrayElementAtIndex(0).FindPropertyRelative("cells").arraySize;
+                    if (cols > 0)
+                    {
+                        float colWidth = rect.width / cols;
+                        for (int r = 0; r < rows; r++)
+                        {
+                            var rowCells = tableDataProp.GetArrayElementAtIndex(r).FindPropertyRelative("cells");
+                            for (int c = 0; c < cols; c++)
+                            {
+                                Rect cellRect = new Rect(rect.x + (c * colWidth), rect.y + y, colWidth - 2, sh);
+                                var cellProp = rowCells.GetArrayElementAtIndex(c);
+                                
+                                if (!showCellDetails)
+                                {
+                                    EditorGUI.PropertyField(cellRect, cellProp.FindPropertyRelative("text"), GUIContent.none);
+                                }
+                                else
+                                {
+                                    // Complex cell view: Alignment, V-Align, Colspan
+                                    float miniW = (colWidth - 4) / 4f;
+                                    EditorGUI.PropertyField(new Rect(cellRect.x, cellRect.y, miniW * 1.5f, sh), cellProp.FindPropertyRelative("alignment"), GUIContent.none);
+                                    EditorGUI.PropertyField(new Rect(cellRect.x + miniW * 1.5f + 1, cellRect.y, miniW * 1.5f, sh), cellProp.FindPropertyRelative("verticalAlignment"), GUIContent.none);
+                                    EditorGUI.PropertyField(new Rect(cellRect.x + miniW * 3 + 2, cellRect.y, miniW - 2, sh), cellProp.FindPropertyRelative("colspan"), GUIContent.none);
+                                }
+                            }
+                            y += sh + 2;
+                        }
+                    }
+                }
             }
         }
 
-        private void AddTablePreset()
+        private float GetElementHeight(SerializedProperty element)
+        {
+            var type = (PdfElementType)element.FindPropertyRelative("type").enumValueIndex;
+            float sh = EditorGUIUtility.singleLineHeight;
+            float p = 4f;
+            switch (type)
+            {
+                case PdfElementType.Text: return sh * 5 + p * 10;
+                case PdfElementType.Divider: return sh * 3 + p * 6;
+                case PdfElementType.Table: 
+                    int rows = element.FindPropertyRelative("tableData").arraySize;
+                    bool borders = element.FindPropertyRelative("showTableBorders").boolValue;
+                    float baseH = sh * 6 + p * 12; // Extra rows for Column Widths and Spacing
+                    if (borders) baseH += sh + p;
+                    return baseH + (rows * (sh + 2)) + p;
+                default: return sh + p * 4;
+            }
+        }
+
+        private void ResetElementToDefaults(SerializedProperty element)
+        {
+            element.FindPropertyRelative("type").enumValueIndex = 0;
+            element.FindPropertyRelative("text").stringValue = "";
+            element.FindPropertyRelative("fontSize").intValue = 11;
+            element.FindPropertyRelative("isBold").boolValue = false;
+            element.FindPropertyRelative("color").colorValue = Color.black;
+            element.FindPropertyRelative("spacingAfter").floatValue = 10f;
+            element.FindPropertyRelative("lineHeight").floatValue = 1.2f;
+            element.FindPropertyRelative("leftMargin").floatValue = 50f;
+            element.FindPropertyRelative("rightMargin").floatValue = 50f;
+        }
+
+        private void AddPreset(SerializedProperty elementsProp, PdfElementType type, string text, int fontSize, bool isBold, PdfAlignment alignment)
         {
             elementsProp.arraySize++;
-            var element = elementsProp.GetArrayElementAtIndex(elementsProp.arraySize - 1);
-            element.FindPropertyRelative("type").enumValueIndex = (int)PdfElementType.Table;
-            
-            var tableDataProp = element.FindPropertyRelative("tableData");
-            tableDataProp.arraySize = 3; // 1 header + 2 rows
-            
-            for (int r = 0; r < 3; r++)
-            {
-                var cells = tableDataProp.GetArrayElementAtIndex(r).FindPropertyRelative("cells");
-                cells.arraySize = 3;
-                for (int c = 0; c < 3; c++)
-                {
-                    var cell = cells.GetArrayElementAtIndex(c);
-                    cell.FindPropertyRelative("text").stringValue = (r == 0) ? $"Col {c+1}" : $"Row {r}, Col {c+1}";
-                    cell.FindPropertyRelative("alignment").enumValueIndex = (int)PdfAlignment.Left;
-                }
-            }
-
+            var el = elementsProp.GetArrayElementAtIndex(elementsProp.arraySize - 1);
+            ResetElementToDefaults(el);
+            el.FindPropertyRelative("type").enumValueIndex = (int)type;
+            el.FindPropertyRelative("text").stringValue = text;
+            el.FindPropertyRelative("fontSize").intValue = fontSize;
+            el.FindPropertyRelative("isBold").boolValue = isBold;
+            el.FindPropertyRelative("alignment").enumValueIndex = (int)alignment;
             serializedObject.ApplyModifiedProperties();
         }
 
-        private void AddPreset(PdfElementType type, string text, int fontSize, bool isBold, PdfAlignment alignment)
+        private void AddTablePreset(SerializedProperty elementsProp)
         {
             elementsProp.arraySize++;
             var element = elementsProp.GetArrayElementAtIndex(elementsProp.arraySize - 1);
-            element.FindPropertyRelative("type").enumValueIndex = (int)type;
-            element.FindPropertyRelative("text").stringValue = text;
-            element.FindPropertyRelative("fontSize").intValue = fontSize;
-            element.FindPropertyRelative("isBold").boolValue = isBold;
-            element.FindPropertyRelative("alignment").enumValueIndex = (int)alignment;
-            element.FindPropertyRelative("spacingAfter").floatValue = (fontSize >= 16) ? 20f : 10f;
+            ResetElementToDefaults(element);
+            element.FindPropertyRelative("type").enumValueIndex = (int)PdfElementType.Table;
             
-            //if (type == PdfElementType.LabelValue)
-            //    element.FindPropertyRelative("value").stringValue = "Value";
-
+            var tableDataProp = element.FindPropertyRelative("tableData");
+            tableDataProp.arraySize = 2;
+            for (int r = 0; r < 2; r++)
+            {
+                var cells = tableDataProp.GetArrayElementAtIndex(r).FindPropertyRelative("cells");
+                cells.arraySize = 2;
+                for (int c = 0; c < 2; c++)
+                {
+                    cells.GetArrayElementAtIndex(c).FindPropertyRelative("text").stringValue = $"R{r}C{c}";
+                }
+            }
             serializedObject.ApplyModifiedProperties();
         }
     }

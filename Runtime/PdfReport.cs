@@ -19,6 +19,10 @@ namespace UnityProductivityTools.Runtime
         public float rightMargin = 50f;
 
         [Tooltip("The ordered list of content elements to include in the PDF.")]
+        [Header("Page Setup")]
+        public List<PdfPage> pages = new List<PdfPage>();
+
+        [HideInInspector, System.Obsolete("Use 'pages' instead. This will be migrated automatically.")]
         public List<PdfElement> elements = new List<PdfElement>();
 
         /// <summary>
@@ -27,10 +31,19 @@ namespace UnityProductivityTools.Runtime
         [ContextMenu("Generate Report")]
         public void Generate()
         {
-            if (elements == null || elements.Count == 0)
+            if ((pages == null || pages.Count == 0) && (elements == null || elements.Count == 0))
             {
-                Debug.LogWarning("[PdfReport] No elements to generate.");
+                Debug.LogWarning("[PdfReport] No pages or elements to generate.");
                 return;
+            }
+
+            // Migration check
+            if (pages.Count == 0 && elements.Count > 0)
+            {
+                var migrationPage = new PdfPage("Migrated Content");
+                migrationPage.elements.AddRange(elements);
+                pages.Add(migrationPage);
+                // elements.Clear(); // Optional: Clear to avoid double migration, but HideInInspector is safer for now
             }
 
             PdfGenerator pdf = CreatePdf();
@@ -59,20 +72,41 @@ namespace UnityProductivityTools.Runtime
             
             pdf.StartDocument();
 
-            foreach (var element in elements)
+            for (int i = 0; i < pages.Count; i++)
             {
-                // Apply spacing before
-                if (element.spacingBefore > 0)
+                var page = pages[i];
+
+                // Apply page-specific overrides if enabled
+                float currentTop = page.useOverrides ? page.topMargin : topMargin;
+                float currentBottom = page.useOverrides ? page.bottomMargin : bottomMargin;
+                float currentLeft = page.useOverrides ? page.leftMargin : leftMargin;
+                float currentRight = page.useOverrides ? page.rightMargin : rightMargin;
+
+                pdf.topMargin = currentTop;
+                pdf.bottomMargin = currentBottom;
+                pdf.leftMargin = currentLeft;
+                pdf.rightMargin = currentRight;
+                
+                if (i > 0) 
+                    pdf.NewPage();
+                else
+                    pdf.cursorY = 842 - currentTop - 30;
+
+                foreach (var element in page.elements)
                 {
-                    pdf.AddVerticalSpace(element.spacingBefore);
+                    // Apply spacing before
+                    if (element.spacingBefore > 0)
+                    {
+                        pdf.AddVerticalSpace(element.spacingBefore);
+                    }
+
+                    // Check for page overflow before drawing
+                    float spaceNeeded = element.spacingAfter + (element.fontSize * element.lineHeight);
+                    pdf.CheckPageOverflow(spaceNeeded);
+
+                    DrawElement(pdf, element);
+                    pdf.AddVerticalSpace(element.spacingAfter);
                 }
-
-                // Check for page overflow before drawing
-                float spaceNeeded = element.spacingAfter + (element.fontSize * element.lineHeight);
-                pdf.CheckPageOverflow(spaceNeeded);
-
-                DrawElement(pdf, element);
-                pdf.AddVerticalSpace(element.spacingAfter);
             }
 
             return pdf;
@@ -147,46 +181,80 @@ namespace UnityProductivityTools.Runtime
 
         private void DrawTable(PdfGenerator pdf, PdfElement el)
         {
-            if (el.tableData == null || el.tableData.Count == 0) return;
+            if (el.tableData == null || el.tableData.Count == 0) 
+            {
+                Debug.LogWarning("[PdfReport] Table has no data.");
+                return;
+            }
 
             int rowCount = el.tableData.Count;
-            int colCount = el.tableData[0].cells.Count;
-            if (colCount == 0) return;
+            // Determine max column count across all rows for width distribution
+            int maxCols = 0;
+            foreach (var row in el.tableData)
+            {
+                if (row.cells != null && row.cells.Count > maxCols) maxCols = row.cells.Count;
+            }
+            
+            if (maxCols == 0) 
+            {
+                Debug.LogWarning("[PdfReport] Table rows have no cells.");
+                return;
+            }
 
             float effectiveLeftMargin = (el.leftMargin == 50f) ? pdf.leftMargin : el.leftMargin;
             float effectiveRightMargin = (el.rightMargin == 50f) ? pdf.rightMargin : el.rightMargin;
 
-            float tableWidth = el.dividerWidth > 0 ? el.dividerWidth : (595f - effectiveLeftMargin - effectiveRightMargin);
-            float[] colWidths = new float[colCount];
+            float tableWidth = (el.dividerWidth > 0) ? el.dividerWidth : (595f - effectiveLeftMargin - effectiveRightMargin);
+            float[] colWidths = new float[maxCols];
 
             // Distribute width
-            for (int i = 0; i < colCount; i++)
+            float totalFixedWidth = 0;
+            int autoCols = 0;
+            for (int i = 0; i < maxCols; i++)
+            {
+                if (el.columnWidths != null && i < el.columnWidths.Count && el.columnWidths[i] > 0)
+                    totalFixedWidth += el.columnWidths[i];
+                else
+                    autoCols++;
+            }
+
+            float autoColWidth = Mathf.Max(10f, (tableWidth - totalFixedWidth) / Mathf.Max(1, autoCols));
+            for (int i = 0; i < maxCols; i++)
             {
                 if (el.columnWidths != null && i < el.columnWidths.Count && el.columnWidths[i] > 0)
                     colWidths[i] = el.columnWidths[i];
                 else
-                    colWidths[i] = tableWidth / colCount;
+                    colWidths[i] = autoColWidth;
             }
 
             float startX = effectiveLeftMargin;
+            if (el.alignment == PdfAlignment.Center) startX = (595f - tableWidth) / 2f;
+            else if (el.alignment == PdfAlignment.Right) startX = 595f - effectiveRightMargin - tableWidth;
+
+            // Debug info to help troubleshoot mismatches
+            // Debug.Log($"[PdfReport] Drawing Table: {rowCount} rows, {maxCols} columns, total width: {tableWidth}");
 
             for (int r = 0; r < rowCount; r++)
             {
                 bool isHeader = (r == 0 && el.hasTableHeader);
+                var row = el.tableData[r];
+                if (row.cells == null) continue;
+                
+                int currentRowCols = row.cells.Count;
                 
                 // --- PHASE 1: Calculate Row Height (supports wrapping) ---
                 float actualRowHeight = el.fontSize + (el.cellPadding * 2f);
                 List<List<string>> wrappedRows = new List<List<string>>();
 
-                for (int c = 0; c < colCount; c++)
+                for (int c = 0; c < currentRowCols; c++)
                 {
-                    PdfTableCell cell = el.tableData[r].cells[c];
+                    PdfTableCell cell = row.cells[c];
                     string rawText = cell.text ?? "";
                     
                     if (cell.wrapText)
                     {
-                        float maxWidth = colWidths[c] - (el.cellPadding * 2);
-                        // Approximate char width 0.5f of font size
+                        float cW = (c < maxCols) ? colWidths[c] : autoColWidth;
+                        float maxWidth = cW - (el.cellPadding * 2);
                         int charsPerLine = Mathf.Max(1, Mathf.FloorToInt(maxWidth / (el.fontSize * 0.53f)));
                         var lines = SplitTextIntoLines(rawText, charsPerLine);
                         wrappedRows.Add(lines);
@@ -204,88 +272,80 @@ namespace UnityProductivityTools.Runtime
                 float currentX = startX;
 
                 // --- PHASE 2: Draw Backgrounds, Borders, and Content ---
-                for (int c = 0; c < colCount; c++)
+                for (int c = 0; c < currentRowCols; c++)
                 {
-                    PdfTableCell cell = el.tableData[r].cells[c];
-                    
-                    // Safety: Force colspan to 1 if it's 0 (prevents skipping cells in old data)
+                    if (c >= maxCols) break; // Safety against out of bounds
+
+                    PdfTableCell cell = row.cells[c];
                     int safeColspan = Mathf.Max(1, cell.colspan);
                     
                     float effectiveColWidth = 0;
-                    for(int i = 0; i < safeColspan && (c + i) < colCount; i++) effectiveColWidth += colWidths[c + i];
+                    for(int i = 0; i < safeColspan && (c + i) < maxCols; i++) 
+                        effectiveColWidth += colWidths[c + i];
 
-                    // 1. Draw Cell Background (Header color or Per-cell color)
+                    // 1. Draw Cell Background
                     Color cellBg = cell.backgroundColor;
-                    // If no per-cell bg is set, use the global header color for the header row
                     if (isHeader && cellBg.a < 0.01f) cellBg = el.tableHeaderColor;
-
-                    if (cellBg.a > 0.05f) // Slightly higher threshold for safety
+                    if (cellBg.a > 0.05f) 
                     {
                         pdf.SetColor(cellBg);
                         pdf.DrawRect(currentX, pdf.cursorY - actualRowHeight, effectiveColWidth, actualRowHeight, true);
                     }
 
-                    // 2. Draw Borders
+                    // 2. Draw Borders (using individual lines to fix dash alignment bug)
                     if (el.showTableBorders)
                     {
                         pdf.SetLineWidth(el.borderThickness);
                         pdf.SetColor(el.borderColor);
                         if (el.borderStyle == PdfBorderStyle.Dashed) pdf.SetDashPattern(new float[] { 3, 3 }, 0);
                         else pdf.SetDashPattern(null, 0);
-
-                        pdf.DrawRect(currentX, pdf.cursorY - actualRowHeight, effectiveColWidth, actualRowHeight, false);
-                    }
-
-                    // 3. Draw Images (Placeholder)
-                    if (!string.IsNullOrEmpty(cell.imagePath))
-                    {
-                        pdf.SetColor(Color.gray);
-                        pdf.DrawText("[Img]", currentX + el.cellPadding, el.fontSize * 0.7f, false);
-                    }
-
-                    // 4. Draw Wrapped/Positioned Text
-                    pdf.SetColor(el.color); // Restore text color
-                    var linesToDraw = wrappedRows[c];
-                    float totalLinesHeight = linesToDraw.Count * el.fontSize;
-                    
-                    for (int l = 0; l < linesToDraw.Count; l++)
-                    {
-                        string line = linesToDraw[l];
-                        float textWidth = line.Length * el.fontSize * 0.5f;
-
-                        // Horizontal Align
-                        float textX = currentX + el.cellPadding;
-                        if (cell.alignment == PdfAlignment.Center) textX = currentX + (effectiveColWidth / 2f) - (textWidth / 2f);
-                        else if (cell.alignment == PdfAlignment.Right) textX = currentX + effectiveColWidth - textWidth - el.cellPadding;
-                        textX += cell.offsetX;
-
-                        // Vertical Align
-                        float startY = pdf.cursorY - el.cellPadding - (el.fontSize * 0.8f); // Top
-                        if (cell.verticalAlignment == PdfVerticalAlignment.Middle)
-                            startY = pdf.cursorY - (actualRowHeight / 2f) - (totalLinesHeight / 2f) + (el.fontSize * 0.2f);
-                        else if (cell.verticalAlignment == PdfVerticalAlignment.Bottom)
-                            startY = pdf.cursorY - actualRowHeight + el.cellPadding + ((linesToDraw.Count - 1 - l) * el.fontSize);
                         
-                        // Line spacing
-                        float lineY = startY - (l * el.fontSize) + cell.offsetY;
+                        float yBottom = pdf.cursorY - actualRowHeight;
+                        float yTop = pdf.cursorY;
+                        float xLeft = currentX;
+                        float xRight = currentX + effectiveColWidth;
 
-                        float savedY = pdf.cursorY;
-                        pdf.cursorY = lineY;
-                        pdf.DrawText(line, textX, el.fontSize, isHeader || el.isBold);
-                        pdf.cursorY = savedY;
+                        // Draw 4 lines with consistent direction to ensure dash alignment
+                        pdf.DrawLine(xLeft, yTop, xRight, yTop);       // Top
+                        pdf.DrawLine(xLeft, yBottom, xRight, yBottom); // Bottom
+                        pdf.DrawLine(xLeft, yTop, xLeft, yBottom);     // Left
+                        pdf.DrawLine(xRight, yTop, xRight, yBottom);   // Right
+                    }
+
+                    // 3. Draw Content
+                    pdf.SetColor(el.color);
+                    if (c < wrappedRows.Count)
+                    {
+                        var linesToDraw = wrappedRows[c];
+                        float totalLinesHeight = linesToDraw.Count * el.fontSize;
+                        for (int l = 0; l < linesToDraw.Count; l++)
+                        {
+                            string line = linesToDraw[l];
+                            float textWidth = line.Length * el.fontSize * 0.5f; // Approx
+                            float textX = currentX + el.cellPadding;
+                            if (cell.alignment == PdfAlignment.Center) textX = currentX + (effectiveColWidth / 2f) - (textWidth / 2f);
+                            else if (cell.alignment == PdfAlignment.Right) textX = currentX + effectiveColWidth - textWidth - el.cellPadding;
+                            textX += cell.offsetX;
+
+                            float startY = pdf.cursorY - el.cellPadding - (el.fontSize * 0.8f);
+                            if (cell.verticalAlignment == PdfVerticalAlignment.Middle)
+                                startY = pdf.cursorY - (actualRowHeight / 2f) - (totalLinesHeight / 2f) + (el.fontSize * 0.2f);
+                            else if (cell.verticalAlignment == PdfVerticalAlignment.Bottom)
+                                startY = pdf.cursorY - actualRowHeight + el.cellPadding + ((linesToDraw.Count - 1 - l) * el.fontSize);
+                            
+                            float lineY = startY - (l * el.fontSize) + cell.offsetY;
+                            float savedY = pdf.cursorY;
+                            pdf.cursorY = lineY;
+                            pdf.DrawText(line, textX, el.fontSize, isHeader || el.isBold);
+                            pdf.cursorY = savedY;
+                        }
                     }
 
                     currentX += effectiveColWidth;
-                    if (safeColspan > 1) c += (safeColspan - 1); // Skip spanned columns
+                    if (safeColspan > 1) c += (safeColspan - 1);
                 }
 
-                // Reset Line Width/Dash Pattern for safety
-                if (el.showTableBorders)
-                {
-                    pdf.SetLineWidth(1f);
-                    pdf.SetDashPattern(null, 0);
-                }
-
+                if (el.showTableBorders) { pdf.SetLineWidth(1f); pdf.SetDashPattern(null, 0); }
                 pdf.AddVerticalSpace(actualRowHeight);
             }
         }
@@ -411,10 +471,30 @@ namespace UnityProductivityTools.Runtime
         }
 
         // API Methods
-        public void AddHeader(string text) => elements.Add(PdfElement.CreateHeader(text));
-        public void AddDivider() => elements.Add(PdfElement.CreateDivider());
-        //public void AddLabelValue(string label, string value) => elements.Add(PdfElement.CreateLabelValue(label, value));
-        public void AddElement(PdfElement element) => elements.Add(element);
-        public void Clear() => elements.Clear();
+        public void AddHeader(string text)
+        {
+            if (pages.Count == 0) pages.Add(new PdfPage("Main Page"));
+            pages[pages.Count - 1].elements.Add(PdfElement.CreateHeader(text));
+        }
+
+        public void AddDivider()
+        {
+            if (pages.Count == 0) pages.Add(new PdfPage("Main Page"));
+            pages[pages.Count - 1].elements.Add(PdfElement.CreateDivider());
+        }
+
+        public void AddElement(PdfElement element)
+        {
+            if (pages.Count == 0) pages.Add(new PdfPage("Main Page"));
+            pages[pages.Count - 1].elements.Add(element);
+        }
+
+        public void AddNewPage(string name = "New Page") => pages.Add(new PdfPage(name));
+
+        public void Clear()
+        {
+            pages.Clear();
+            elements.Clear();
+        }
     }
 }
