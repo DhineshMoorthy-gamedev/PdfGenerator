@@ -9,7 +9,8 @@ namespace UnityProductivityTools.Runtime
         Divider,
         VerticalSpace,
         Table,
-        Shape
+        Shape,
+        Image
     }
 
     public enum PdfShapeType
@@ -86,6 +87,8 @@ namespace UnityProductivityTools.Runtime
         public Color backgroundColor = Color.clear;
         public int colspan = 1;
         public string imagePath;
+        public float imageWidth = 0f; // 0 = fit to cell
+        public float imageHeight = 0f; // 0 = fit to cell
         public bool wrapText = true;
         
         public PdfTableCell() 
@@ -171,6 +174,12 @@ namespace UnityProductivityTools.Runtime
         public PdfLineCap lineCap = PdfLineCap.Butt;
         public float[] dashPatternArray;
         public float dashPhase = 0f;
+
+        // Image Options
+        public string imagePath;
+        public float imageWidth = 0f; // 0 = auto-calculate
+        public float imageHeight = 0f; // 0 = auto-calculate
+        public bool maintainAspectRatio = true;
 
         public PdfElement() { }
 

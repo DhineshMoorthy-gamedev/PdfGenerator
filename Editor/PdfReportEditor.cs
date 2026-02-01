@@ -176,6 +176,7 @@ namespace UnityProductivityTools.Editor.PdfGenerator
             if (GUILayout.Button("+ Text", EditorStyles.miniButtonMid)) AddPreset(elementsProp, PdfElementType.Text, "Body Text", 11, false, PdfAlignment.Left);
             if (GUILayout.Button("+ Table", EditorStyles.miniButtonMid)) AddTablePreset(elementsProp);
             if (GUILayout.Button("+ Shape", EditorStyles.miniButtonMid)) AddShapePreset(elementsProp);
+            if (GUILayout.Button("+ Image", EditorStyles.miniButtonMid)) AddImagePreset(elementsProp);
             if (GUILayout.Button("+ Divider", EditorStyles.miniButtonRight)) AddPreset(elementsProp, PdfElementType.Divider, "", 11, false, PdfAlignment.Left);
             EditorGUILayout.EndHorizontal();
         }
@@ -369,6 +370,50 @@ namespace UnityProductivityTools.Editor.PdfGenerator
                 EditorGUI.LabelField(new Rect(rect.x + 140, rect.y + y, 80, sh), "Bot-Margin:");
                 EditorGUI.PropertyField(new Rect(rect.x + 225, rect.y + y, 40, sh), bottomMargin, GUIContent.none);
             }
+            else if (elementType == PdfElementType.Image)
+            {
+                var imagePath = element.FindPropertyRelative("imagePath");
+                var imageWidth = element.FindPropertyRelative("imageWidth");
+                var imageHeight = element.FindPropertyRelative("imageHeight");
+                var maintainAspectRatio = element.FindPropertyRelative("maintainAspectRatio");
+
+                float y = sh + p * 2;
+                
+                // Row 1: Image Path
+                EditorGUI.LabelField(new Rect(rect.x, rect.y + y, 40, sh), "Path:");
+                EditorGUI.PropertyField(new Rect(rect.x + 45, rect.y + y, rect.width - 90, sh), imagePath, GUIContent.none);
+                if (GUI.Button(new Rect(rect.x + rect.width - 40, rect.y + y, 40, sh), "..."))
+                {
+                    string path = EditorUtility.OpenFilePanel("Select Image", "", "jpg,jpeg");
+                    if (!string.IsNullOrEmpty(path))
+                    {
+                        imagePath.stringValue = path;
+                    }
+                }
+
+                y += sh + p;
+                
+                // Row 2: Dimensions
+                EditorGUI.LabelField(new Rect(rect.x, rect.y + y, 50, sh), "Width:");
+                EditorGUI.PropertyField(new Rect(rect.x + 50, rect.y + y, 50, sh), imageWidth, GUIContent.none);
+                EditorGUI.LabelField(new Rect(rect.x + 110, rect.y + y, 50, sh), "Height:");
+                EditorGUI.PropertyField(new Rect(rect.x + 160, rect.y + y, 50, sh), imageHeight, GUIContent.none);
+                maintainAspectRatio.boolValue = EditorGUI.ToggleLeft(new Rect(rect.x + 220, rect.y + y, 100, sh), "Keep Aspect", maintainAspectRatio.boolValue);
+
+                y += sh + p;
+                
+                // Row 3: Alignment
+                EditorGUI.LabelField(new Rect(rect.x, rect.y + y, 60, sh), "Align:");
+                EditorGUI.PropertyField(new Rect(rect.x + 65, rect.y + y, 80, sh), alignment, GUIContent.none);
+
+                y += sh + p;
+                
+                // Row 4: Margins
+                EditorGUI.LabelField(new Rect(rect.x, rect.y + y, 85, sh), "Top-Margin:");
+                EditorGUI.PropertyField(new Rect(rect.x + 90, rect.y + y, 40, sh), topMargin, GUIContent.none);
+                EditorGUI.LabelField(new Rect(rect.x + 140, rect.y + y, 80, sh), "Bot-Margin:");
+                EditorGUI.PropertyField(new Rect(rect.x + 225, rect.y + y, 40, sh), bottomMargin, GUIContent.none);
+            }
             else if (elementType == PdfElementType.Table)
             {
                 var tableDataProp = element.FindPropertyRelative("tableData");
@@ -556,6 +601,8 @@ namespace UnityProductivityTools.Editor.PdfGenerator
                          shapeH += EditorGUI.GetPropertyHeight(segments, true) + p;
                     }
                     return shapeH;
+                case PdfElementType.Image:
+                    return sh * 5 + p * 10;
                 default: return sh + p * 4;
             }
         }
@@ -622,6 +669,20 @@ namespace UnityProductivityTools.Editor.PdfGenerator
             el.FindPropertyRelative("opacity").floatValue = 0.5f;
             el.FindPropertyRelative("height").floatValue = 40f; // Default height
             el.FindPropertyRelative("width").floatValue = 0f; // Auto width
+            serializedObject.ApplyModifiedProperties();
+        }
+
+        private void AddImagePreset(SerializedProperty elementsProp)
+        {
+            elementsProp.arraySize++;
+            var el = elementsProp.GetArrayElementAtIndex(elementsProp.arraySize - 1);
+            ResetElementToDefaults(el);
+            el.FindPropertyRelative("type").enumValueIndex = (int)PdfElementType.Image;
+            el.FindPropertyRelative("imagePath").stringValue = "";
+            el.FindPropertyRelative("imageWidth").floatValue = 0f;
+            el.FindPropertyRelative("imageHeight").floatValue = 0f;
+            el.FindPropertyRelative("maintainAspectRatio").boolValue = true;
+            el.FindPropertyRelative("alignment").enumValueIndex = (int)PdfAlignment.Center;
             serializedObject.ApplyModifiedProperties();
         }
     }

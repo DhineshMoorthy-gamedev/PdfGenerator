@@ -28,12 +28,26 @@ namespace UnityProductivityTools.Runtime
         // Transparency support
         private Dictionary<float, string> opacityStates = new Dictionary<float, string>();
         private int gsCount = 0;
+        
+        // Image support
+        private Dictionary<string, ImageData> embeddedImages = new Dictionary<string, ImageData>();
+        private int imageCount = 0;
+        
+        private class ImageData
+        {
+            public string name;
+            public byte[] data;
+            public int width;
+            public int height;
+            public int objectId;
+        }
 
         public PdfGenerator()
         {
             sb = new StringBuilder();
             offsets = new List<int>();
             pageStreams = new List<StringBuilder>();
+            embeddedImages = new Dictionary<string, ImageData>();
         }
 
         public void StartDocument()
@@ -249,12 +263,194 @@ namespace UnityProductivityTools.Runtime
             currentContent.AppendLine("BT");
         }
 
+        /// <summary>
+        /// Embeds an image from file path and returns the image name for use in DrawImage.
+        /// Returns null if the image cannot be loaded.
+        /// </summary>
+        public string EmbedImage(string imagePath)
+        {
+            if (string.IsNullOrEmpty(imagePath))
+            {
+                Debug.LogWarning("[PdfGenerator] Image path is null or empty.");
+                return null;
+            }
+
+            if (!File.Exists(imagePath))
+            {
+                Debug.LogWarning($"[PdfGenerator] Image file not found at path: {imagePath}");
+                return null;
+            }
+
+            // Check if already embedded
+            if (embeddedImages.ContainsKey(imagePath))
+            {
+                return embeddedImages[imagePath].name;
+            }
+
+            try
+            {
+                Debug.Log($"[PdfGenerator] Attempting to embed image: {imagePath}");
+                byte[] imageBytes = File.ReadAllBytes(imagePath);
+                Debug.Log($"[PdfGenerator] Read {imageBytes.Length} bytes from file.");
+                
+                // Get image dimensions
+                int width, height;
+                if (!GetJpegDimensions(imageBytes, out width, out height))
+                {
+                    Debug.LogWarning($"[PdfGenerator] Could not read JPEG dimensions: {imagePath}. Ensure it is a valid JPEG/JPG file.");
+                    return null;
+                }
+
+                Debug.Log($"[PdfGenerator] Detected image dimensions: {width}x{height}");
+
+                imageCount++;
+                string imageName = $"Im{imageCount}";
+
+                var imageData = new ImageData
+                {
+                    name = imageName,
+                    data = imageBytes,
+                    width = width,
+                    height = height,
+                    objectId = -1 // Will be set during PDF generation
+                };
+
+                embeddedImages[imagePath] = imageData;
+                return imageName;
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[PdfGenerator] Error embedding image {imagePath}: {e.Message}");
+                return null;
+            }
+        }
+
         public void DrawHorizontalRule()
         {
             DrawLine(leftMargin, pageWidth - rightMargin);
         }
 
-        public string GetPdfString()
+        /// <summary>
+        /// Draws an embedded image at the specified position with given dimensions.
+        /// </summary>
+        public void DrawImage(string imageName, float x, float y, float width, float height)
+        {
+            if (string.IsNullOrEmpty(imageName)) return;
+
+            if (currentContent != null && !currentContent.ToString().EndsWith("ET\n"))
+            {
+                currentContent.AppendLine("ET");
+            }
+            
+            currentContent.AppendLine("q"); // Save graphics state
+            
+            // Transform matrix: width 0 0 height x y cm
+            currentContent.AppendLine($"{width:F3} 0 0 {height:F3} {x:F3} {y:F3} cm");
+            currentContent.AppendLine($"/{imageName} Do");
+            
+            currentContent.AppendLine("Q"); // Restore graphics state
+            currentContent.AppendLine("BT");
+        }
+
+        /// <summary>
+        /// Gets the dimensions of an embedded image.
+        /// </summary>
+        public bool GetImageDimensions(string imagePath, out int width, out int height)
+        {
+            width = 0;
+            height = 0;
+
+            if (embeddedImages.ContainsKey(imagePath))
+            {
+                width = embeddedImages[imagePath].width;
+                height = embeddedImages[imagePath].height;
+                return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Reads JPEG dimensions from byte array.
+        /// </summary>
+        private bool GetJpegDimensions(byte[] data, out int width, out int height)
+        {
+            width = 0;
+            height = 0;
+
+            try
+            {
+                // Check for JPEG magic number (FF D8)
+                if (data.Length < 2 || data[0] != 0xFF || data[1] != 0xD8)
+                {
+                    Debug.LogWarning($"[PdfGenerator] Invalid JPEG header: {data[0]:X2} {data[1]:X2}");
+                    return false;
+                }
+
+                int i = 2;
+                while (i < data.Length - 1)
+                {
+                    // Search for next marker (starts with FF)
+                    if (data[i] != 0xFF)
+                    {
+                        i++;
+                        continue;
+                    }
+                    
+                    byte marker = data[i + 1];
+                    i += 2;
+
+                    // Skip padding FF bytes
+                    while (marker == 0xFF && i < data.Length)
+                    {
+                        marker = data[i];
+                        i++;
+                    }
+
+                    // SOF markers (Start of Frame)
+                    // C0-C3, C5-C7, C9-CB, CD-CF are SOF markers
+                    if ((marker >= 0xC0 && marker <= 0xC3) || 
+                        (marker >= 0xC5 && marker <= 0xC7) ||
+                        (marker >= 0xC9 && marker <= 0xCB) ||
+                        (marker >= 0xCD && marker <= 0xCF))
+                    {
+                        if (i + 7 >= data.Length) return false;
+                        
+                        // Skip length (2 bytes) and precision (1 byte)
+                        i += 3;
+                        
+                        // Read height (2 bytes, big-endian)
+                        height = (data[i] << 8) | data[i + 1];
+                        i += 2;
+                        
+                        // Read width (2 bytes, big-endian)
+                        width = (data[i] << 8) | data[i + 1];
+                        
+                        return true;
+                    }
+                    else if (marker == 0xD9 || marker == 0xDA) // EOI or SOS - stop searching
+                    {
+                        break;
+                    }
+                    else
+                    {
+                        // Skip this segment
+                        if (i + 1 >= data.Length) return false;
+                        int segmentLength = (data[i] << 8) | data[i + 1];
+                        i += segmentLength;
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning($"[PdfGenerator] Error parsing JPEG markers: {e.Message}");
+                return false;
+            }
+
+            return false;
+        }
+
+        public byte[] GetPdfBytes()
         {
             if (currentContent != null && !currentContent.ToString().EndsWith("ET\n"))
             {
@@ -264,7 +460,7 @@ namespace UnityProductivityTools.Runtime
             // Create a temporary copy of sb to append the structural elements
             // without modifying the internal state permanently in case user calls it multiple times
             StringBuilder finalSb = new StringBuilder(sb.ToString());
-            List<int> tempOffsets = new List<int>(offsets);
+            List<int> tempOffsets = new List<int>();
 
             void AddTempObject(string content)
             {
@@ -283,36 +479,24 @@ namespace UnityProductivityTools.Runtime
             // Fonts
             int font1Id = 3 + pageStreams.Count * 2;
             int font2Id = font1Id + 1;
+            int firstExtGStateId = font2Id + 1;
+            int firstImageId = firstExtGStateId + opacityStates.Count;
+
+            // Assign object IDs to images
+            int imageIdx = 0;
+            foreach (var kvp in embeddedImages)
+            {
+                kvp.Value.objectId = firstImageId + imageIdx;
+                imageIdx++;
+            }
 
             // Page Objects
             for (int i = 0; i < pageStreams.Count; i++)
             {
                 int pageId = 3 + i * 2;
                 int contentsId = pageId + 1;
-                
-                string extGState = "";
-                if (opacityStates.Count > 0)
-                {
-                    extGState = "/ExtGState << ";
-                    foreach (var kvp in opacityStates)
-                    {
-                        // Placeholder, fixed below in extGStateDict
-                    }
-                    extGState += " >> ";
-                }
 
-                // Correct Calculation:
-                // obj 1: Catalog
-                // obj 2: Pages
-                // obj 3 to 2+N*2: Page components (2 per page)
-                // obj 2+N*2+1: Font 1
-                // obj 2+N*2+2: Font 2
-                // obj 2+N*2+3...: ExtGStates
-                
-                int firstFontId = 3 + pageStreams.Count * 2;
-                int secondFontId = firstFontId + 1;
-                int firstExtGStateId = secondFontId + 1;
-
+                // Build ExtGState dictionary
                 string extGStateDict = "";
                 if (opacityStates.Count > 0)
                 {
@@ -326,7 +510,19 @@ namespace UnityProductivityTools.Runtime
                     extGStateDict += " >> ";
                 }
 
-                AddTempObject($"{pageId} 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 {pageWidth} {pageHeight}] /Contents {contentsId} 0 R /Resources << /Font << /F1 {firstFontId} 0 R /F2 {secondFontId} 0 R >> {extGStateDict} >> >> endobj");
+                // Build XObject dictionary for images
+                string xObjectDict = "";
+                if (embeddedImages.Count > 0)
+                {
+                    xObjectDict = "/XObject << ";
+                    foreach (var kvp in embeddedImages)
+                    {
+                        xObjectDict += $"/{kvp.Value.name} {kvp.Value.objectId} 0 R ";
+                    }
+                    xObjectDict += " >> ";
+                }
+
+                AddTempObject($"{pageId} 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 {pageWidth} {pageHeight}] /Contents {contentsId} 0 R /Resources << /Font << /F1 {font1Id} 0 R /F2 {font2Id} 0 R >> {extGStateDict}{xObjectDict}>> >> endobj");
                 AddTempObject($"{contentsId} 0 obj << /Length {pageStreams[i].Length} >> stream\n{pageStreams[i]}\nendstream endobj");
             }
 
@@ -340,28 +536,71 @@ namespace UnityProductivityTools.Runtime
                 foreach (var kvp in opacityStates)
                 {
                     // /ca is non-stroking, /CA is stroking
-                    AddTempObject($"{tempOffsets.Count + 1} 0 obj << /Type /ExtGState /ca {kvp.Key:F3} /CA {kvp.Key:F3} >> endobj");
+                    tempOffsets.Add(finalSb.Length);
+                    finalSb.AppendLine($"{tempOffsets.Count} 0 obj << /Type /ExtGState /ca {kvp.Key:F3} /CA {kvp.Key:F3} >> endobj");
                 }
             }
 
-            int xrefPos = finalSb.Length;
-            finalSb.AppendLine("xref");
-            finalSb.AppendLine($"0 {tempOffsets.Count + 1}");
-            finalSb.AppendLine("0000000000 65535 f ");
-            foreach (var o in tempOffsets) finalSb.AppendLine(o.ToString("0000000000") + " 00000 n ");
+            // Construct final bytes using ISO-8859-1 for text part
+            byte[] textBytes = Encoding.GetEncoding("ISO-8859-1").GetBytes(finalSb.ToString());
+            List<byte> pdfBytes = new List<byte>(textBytes);
 
-            finalSb.AppendLine("trailer");
-            finalSb.AppendLine($"<< /Size {tempOffsets.Count + 1} /Root 1 0 R >>");
-            finalSb.AppendLine("startxref");
-            finalSb.AppendLine(xrefPos.ToString());
-            finalSb.AppendLine("%%EOF");
+            // Add Image XObjects
+            if (embeddedImages.Count > 0)
+            {
+                foreach (var kvp in embeddedImages)
+                {
+                    var img = kvp.Value;
+                    int objId = img.objectId;
+                    
+                    // Record offset for xref
+                    tempOffsets.Add(pdfBytes.Count);
+                    
+                    // Image XObject header
+                    string header = $"{objId} 0 obj << /Type /XObject /Subtype /Image /Width {img.width} /Height {img.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length {img.data.Length} >> stream\n";
+                    pdfBytes.AddRange(Encoding.GetEncoding("ISO-8859-1").GetBytes(header));
+                    
+                    // Add binary image data
+                    pdfBytes.AddRange(img.data);
+                    
+                    // Close stream
+                    string footer = "\nendstream endobj\n";
+                    pdfBytes.AddRange(Encoding.GetEncoding("ISO-8859-1").GetBytes(footer));
+                }
+            }
 
-            return finalSb.ToString();
+            // Build xref and trailer
+            int xrefPos = pdfBytes.Count;
+            StringBuilder xrefSb = new StringBuilder();
+            xrefSb.Append("xref\r\n");
+            xrefSb.Append($"0 {tempOffsets.Count + 1}\r\n");
+            xrefSb.Append("0000000000 65535 f \r\n");
+            
+            foreach (var o in tempOffsets)
+            {
+                xrefSb.Append(o.ToString("0000000000"));
+                xrefSb.Append(" 00000 n \r\n");
+            }
+
+            xrefSb.Append("trailer\r\n");
+            xrefSb.Append("<< /Size ").Append(tempOffsets.Count + 1).Append(" /Root 1 0 R >>\r\n");
+            xrefSb.Append("startxref\r\n");
+            xrefSb.Append(xrefPos).Append("\r\n");
+            xrefSb.Append("%%EOF\r\n");
+
+            pdfBytes.AddRange(Encoding.GetEncoding("ISO-8859-1").GetBytes(xrefSb.ToString()));
+
+            return pdfBytes.ToArray();
         }
 
-        public byte[] GetPdfBytes()
+        public string GetPdfString()
         {
-            return Encoding.ASCII.GetBytes(GetPdfString());
+            // Use ISO-8859-1 (Latin-1) for string representation to preserve binary data 1:1
+            try {
+                return Encoding.GetEncoding("ISO-8859-1").GetString(GetPdfBytes());
+            } catch {
+                return Encoding.UTF8.GetString(GetPdfBytes()); // Fallback
+            }
         }
 
         public void Save(string path)

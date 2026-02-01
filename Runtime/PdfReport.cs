@@ -182,6 +182,10 @@ namespace UnityProductivityTools.Runtime
                     DrawShape(pdf, el, xPosition);
                     pdf.AddVerticalSpace(el.height);
                     break;
+
+                case PdfElementType.Image:
+                    DrawImageElement(pdf, el, effectiveLeftMargin, effectiveRightMargin);
+                    break;
             }
         }
 
@@ -252,6 +256,114 @@ namespace UnityProductivityTools.Runtime
             pdf.SetLineWidth(1f);
             pdf.SetDashPattern(null, 0);
             pdf.SetOpacity(1.0f);
+        }
+
+        private void DrawImageElement(PdfGenerator pdf, PdfElement el, float leftMargin, float rightMargin)
+        {
+            if (string.IsNullOrEmpty(el.imagePath))
+            {
+                Debug.LogWarning("[PdfReport] Image element has no image path.");
+                return;
+            }
+
+            // Embed the image
+            string imageName = pdf.EmbedImage(el.imagePath);
+            if (string.IsNullOrEmpty(imageName))
+            {
+                Debug.LogWarning($"[PdfReport] Failed to embed image: {el.imagePath}");
+                return;
+            }
+
+            // Get original image dimensions
+            int origWidth, origHeight;
+            if (!pdf.GetImageDimensions(el.imagePath, out origWidth, out origHeight))
+            {
+                Debug.LogWarning($"[PdfReport] Could not get image dimensions: {el.imagePath}");
+                return;
+            }
+
+            // Calculate available width
+            float maxAvailableWidth = 595f - leftMargin - rightMargin;
+            
+            // Determine final dimensions
+            float finalWidth, finalHeight;
+            
+            if (el.imageWidth > 0 && el.imageHeight > 0)
+            {
+                // Both dimensions specified
+                if (el.maintainAspectRatio)
+                {
+                    // Fit within specified bounds while maintaining aspect ratio
+                    float aspectRatio = (float)origWidth / origHeight;
+                    float targetAspect = el.imageWidth / el.imageHeight;
+                    
+                    if (aspectRatio > targetAspect)
+                    {
+                        // Width is limiting factor
+                        finalWidth = el.imageWidth;
+                        finalHeight = el.imageWidth / aspectRatio;
+                    }
+                    else
+                    {
+                        // Height is limiting factor
+                        finalHeight = el.imageHeight;
+                        finalWidth = el.imageHeight * aspectRatio;
+                    }
+                }
+                else
+                {
+                    finalWidth = el.imageWidth;
+                    finalHeight = el.imageHeight;
+                }
+            }
+            else if (el.imageWidth > 0)
+            {
+                // Only width specified
+                finalWidth = el.imageWidth;
+                float aspectRatio = (float)origWidth / origHeight;
+                finalHeight = finalWidth / aspectRatio;
+            }
+            else if (el.imageHeight > 0)
+            {
+                // Only height specified
+                finalHeight = el.imageHeight;
+                float aspectRatio = (float)origWidth / origHeight;
+                finalWidth = finalHeight * aspectRatio;
+            }
+            else
+            {
+                // No dimensions specified - use original size, but fit to page width if needed
+                finalWidth = origWidth;
+                finalHeight = origHeight;
+                
+                if (finalWidth > maxAvailableWidth)
+                {
+                    float scale = maxAvailableWidth / finalWidth;
+                    finalWidth = maxAvailableWidth;
+                    finalHeight *= scale;
+                }
+            }
+
+            // Calculate X position based on alignment
+            float xPos = leftMargin;
+            if (el.alignment == PdfAlignment.Center)
+            {
+                xPos = (595f - finalWidth) / 2f;
+            }
+            else if (el.alignment == PdfAlignment.Right)
+            {
+                xPos = 595f - rightMargin - finalWidth;
+            }
+
+            // Check for page overflow
+            pdf.CheckPageOverflow(finalHeight);
+
+            // Draw the image (Y coordinate is bottom-left in PDF)
+            float yPos = pdf.cursorY - finalHeight;
+            pdf.DrawImage(imageName, xPos, yPos, finalWidth, finalHeight);
+
+            // Advance cursor
+            pdf.AddVerticalSpace(finalHeight);
         }
 
         private void DrawTable(PdfGenerator pdf, PdfElement el)
